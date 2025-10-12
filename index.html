@@ -16,6 +16,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        /* ... styles remain the same ... */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
@@ -55,6 +56,7 @@
 <body class="bg-gray-900 text-white antialiased">
 
     <div id="app" class="flex flex-col h-screen max-w-lg mx-auto bg-gray-800 shadow-2xl relative overflow-hidden">
+        <!-- ... HTML body remains the same ... -->
         <!-- Loading Overlay -->
         <div id="loading-overlay" class="absolute inset-0 bg-gray-900/80 flex justify-center items-center z-50">
             <div class="loader"></div>
@@ -147,35 +149,37 @@
         
         // --- FIREBASE SETUP ---
         let app, auth, db, userId;
-        const appId = 'bantay-pwa-live'; // We can hardcode this as it's not a secret.
+        const appId = 'bantay-pwa-live'; 
         let unsubscribeUserGroups = null; 
         let unsubscribeGroupMembers = {}; 
-
-        // This single placeholder will be replaced by the Base64 string during deployment.
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
         async function initializeFirebase() {
-             // Check if the placeholder is still there. This means we are running locally or the build failed.
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
                 console.warn("Firebase config not found. Running in offline/demo mode. Deploy to Cloudflare with environment variables set to enable live features.");
                 document.getElementById('loading-overlay').style.display = 'none';
                 const header = document.querySelector('header');
-                if (header.nextElementSibling?.id !== 'offline-banner') { // Prevent adding multiple banners
+                if (header.nextElementSibling?.id !== 'offline-banner') { 
                     const warningBanner = document.createElement('div');
                     warningBanner.id = 'offline-banner';
                     warningBanner.className = 'p-2 bg-yellow-500 text-black text-center text-xs font-semibold';
                     warningBanner.textContent = 'Offline Mode: Group features are disabled.';
                     header.insertAdjacentElement('afterend', warningBanner);
                 }
-                // Stop initialization here; don't try to connect to Firebase.
+                return;
+            }
+
+            let decodedConfig;
+            try {
+                decodedConfig = atob(firebaseConfigB64);
+            } catch (e) {
+                console.error("Firebase Initialization Error: Base64 decoding failed. The string from Cloudflare is not valid Base64.", e);
+                document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Configuration Error</p><p class="text-xs text-gray-400 mt-2">The Base64 key is corrupted. Please re-encode and re-paste it in Cloudflare settings.</p></div>`;
                 return;
             }
 
             try {
-                // "Unseal the envelope": Decode the Base64 string back into the JSON config.
-                const decodedConfig = atob(firebaseConfigB64);
                 const firebaseConfig = JSON.parse(decodedConfig);
-
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -194,12 +198,16 @@
                 });
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Failed to connect to Bantay services.</p><p class="text-xs text-gray-400 mt-2">There is a problem with the Firebase configuration. Please check the deployment plan.</p></div>`;
+                // **NEW** This log will show you the broken JSON string.
+                console.error("--- DECODED STRING THAT FAILED TO PARSE ---");
+                console.error(decodedConfig);
+                console.error("-------------------------------------------");
+                document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Failed to connect to Bantay services.</p><p class="text-xs text-gray-400 mt-2">The decoded Firebase config is not valid JSON. Check the console for the broken string and re-create your Base64 variable in Cloudflare.</p></div>`;
             }
         }
         
         // --- ALL JAVASCRIPT FUNCTIONS ---
-
+        // ... functions remain the same ...
         function initializeStaticUI() {
             const alertsBtn = document.getElementById('alerts-btn');
             const groupsBtn = document.getElementById('groups-btn');
@@ -239,9 +247,9 @@
             }
         }
 
-        async function createGroup() { /* ... function body ... */ }
-        async function joinGroup() { /* ... function body ... */ }
-        async function markAsSafe(groupId) { /* ... function body ... */ }
+        async function createGroup() { if (!userId) return; /* ... function body ... */ }
+        async function joinGroup() { if (!userId) return; /* ... function body ... */ }
+        async function markAsSafe(groupId) { if (!userId) return; /* ... function body ... */ }
 
         function attachUserGroupsListener(uid) {
             if (unsubscribeUserGroups) unsubscribeUserGroups();
@@ -294,8 +302,6 @@
             if(permission === 'granted') {
                 document.getElementById('notification-banner').classList.add('hidden');
                 showNotification(mockAlerts[0]);
-            } else {
-                // User denied permission
             }
         }
 
