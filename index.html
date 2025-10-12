@@ -178,8 +178,11 @@
                 return;
             }
 
+            // NEW: Clean the decoded string to remove invisible whitespace that can break JSON.parse
+            const cleanedConfig = decodedConfig.trim();
+
             try {
-                const firebaseConfig = JSON.parse(decodedConfig);
+                const firebaseConfig = JSON.parse(cleanedConfig);
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -198,10 +201,9 @@
                 });
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                // **NEW** This log will show you the broken JSON string.
-                console.error("--- DECODED STRING THAT FAILED TO PARSE ---");
-                console.error(decodedConfig);
-                console.error("-------------------------------------------");
+                console.error("--- DECODED & CLEANED STRING THAT FAILED TO PARSE ---");
+                console.error(cleanedConfig);
+                console.error("-----------------------------------------------------");
                 document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Failed to connect to Bantay services.</p><p class="text-xs text-gray-400 mt-2">The decoded Firebase config is not valid JSON. Check the console for the broken string and re-create your Base64 variable in Cloudflare.</p></div>`;
             }
         }
@@ -247,8 +249,8 @@
             }
         }
 
-        async function createGroup() { if (!userId) return; /* ... function body ... */ }
-        async function joinGroup() { if (!userId) return; /* ... function body ... */ }
+        async function createGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
+        async function joinGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
         async function markAsSafe(groupId) { if (!userId) return; /* ... function body ... */ }
 
         function attachUserGroupsListener(uid) {
