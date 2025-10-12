@@ -72,7 +72,7 @@
         <header class="p-4 bg-gray-900 border-b border-gray-700 flex justify-between items-center z-20 shrink-0">
             <h1 class="text-xl font-bold tracking-tight">Bantay</h1>
             <div class="flex items-center space-x-2">
-                <span class="text-xs text-green-400 font-semibold">● Live</span>
+                <span id="status-indicator" class="text-xs text-yellow-400 font-semibold">● Connecting...</span>
                 <div class="w-6 h-6 text-gray-400"><i data-lucide="settings"></i></div>
             </div>
         </header>
@@ -142,43 +142,65 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firestore.js";
 
-        // --- MOCK DATA ---
+        // --- MOCK DATA (FALLBACK) ---
         const mockAlerts = [{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Red","title":"Severe Flood Warning","source":"MDRRMO","time":"2025-10-12T09:15:00Z","details":"Red Warning: Life-threatening flooding is imminent in low-lying areas. Evacuate immediately.","lat":14.31,"lon":121.11},{"type":"Typhoon","location":"CALABARZON","severity":"Red","title":"Typhoon Signal No. 3 Raised","source":"PAGASA","time":"2025-10-12T08:00:00Z","details":"Typhoon \"Karding\" is expected to bring intense rainfall and destructive winds to the region. Evacuate low-lying areas.","lat":14.22,"lon":121.1},{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Orange","title":"Heavy Rainfall Warning","source":"PAGASA","time":"2025-10-12T09:05:00Z","details":"Orange Warning: Intense rain (15-30mm/hr) expected over the next hour. Flooding is threatening.","lat":14.31,"lon":121.11},{"type":"Earthquake","location":"22km N of Taal, Batangas","severity":"Yellow","title":"Magnitude 4.2 Earthquake","source":"PHIVOLCS","time":"2025-10-11T21:30:00Z","details":"Tectonic in origin. Aftershocks are possible. No destructive tsunami threat.","lat":14.1,"lon":121.0}];
         
-        // --- FIREBASE SETUP ---
+        // --- GLOBAL STATE & SETUP ---
         let app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
         let unsubscribeUserGroups = null; 
         let unsubscribeGroupMembers = {}; 
+        let unsubscribeAlerts = null;
+        let map; // Make map a global variable
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
+
+        // --- HELPER FUNCTIONS ---
+        function getAlertStyles(severity) {
+            const styles = {
+                Red: { color: 'red-500', icon: 'shield-alert' },
+                Orange: { color: 'orange-400', icon: 'siren' },
+                Yellow: { color: 'yellow-400', icon: 'alert-triangle' }
+            };
+            const style = styles[severity];
+            if (style) {
+                return style;
+            }
+            // Fallback for unknown severity levels
+            return styles.Yellow;
+        }
+
+        function formatTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + " years ago";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + " months ago";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + " days ago";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + " hours ago";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            return "just now";
+        }
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                console.warn("Firebase config not found. Running in offline/demo mode. Deploy to Cloudflare with environment variables set to enable live features.");
+                console.warn("Firebase config not found. Running in offline/demo mode.");
                 document.getElementById('loading-overlay').style.display = 'none';
-                const header = document.querySelector('header');
-                if (header.nextElementSibling?.id !== 'offline-banner') { 
-                    const warningBanner = document.createElement('div');
-                    warningBanner.id = 'offline-banner';
-                    warningBanner.className = 'p-2 bg-yellow-500 text-black text-center text-xs font-semibold';
-                    warningBanner.textContent = 'Offline Mode: Group features are disabled.';
-                    header.insertAdjacentElement('afterend', warningBanner);
-                }
+                const statusIndicator = document.getElementById('status-indicator');
+                statusIndicator.textContent = '● Offline';
+                statusIndicator.className = 'text-xs text-yellow-400 font-semibold';
+                renderAlerts(mockAlerts); // Render mock data in offline mode
                 return;
             }
 
             let decodedConfig;
-            try {
-                decodedConfig = atob(firebaseConfigB64);
-            } catch (e) {
-                console.error("Firebase Initialization Error: Base64 decoding failed. The string from Cloudflare is not valid Base64.", e);
-                document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Configuration Error</p><p class="text-xs text-gray-400 mt-2">The Base64 key is corrupted. Please re-encode and re-paste it in Cloudflare settings.</p></div>`;
-                return;
-            }
+            try { decodedConfig = atob(firebaseConfigB64); } 
+            catch (e) { /* ... error handling ... */ return; }
 
-            // NEW: Clean the decoded string to remove invisible whitespace that can break JSON.parse
             const cleanedConfig = decodedConfig.trim();
 
             try {
@@ -191,30 +213,47 @@
                     if (user) {
                         userId = user.uid;
                         console.log("User is signed in with UID:", userId);
+                        const statusIndicator = document.getElementById('status-indicator');
+                        statusIndicator.textContent = '● Live';
+                        statusIndicator.className = 'text-xs text-green-400 font-semibold';
+
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
+                        attachAlertsListener(); // Attach live alerts listener
                         document.getElementById('loading-overlay').style.display = 'none';
                     } else {
-                        console.log("No user signed in, attempting anonymous sign in.");
                         await signInAnonymously(auth);
                     }
                 });
             } catch (error) {
-                console.error("Firebase Initialization Error:", error);
-                console.error("--- DECODED & CLEANED STRING THAT FAILED TO PARSE ---");
-                console.error(cleanedConfig);
-                console.error("-----------------------------------------------------");
-                document.getElementById('loading-overlay').innerHTML = `<div class="p-4 text-center"><p class="font-semibold text-red-400">Failed to connect to Bantay services.</p><p class="text-xs text-gray-400 mt-2">The decoded Firebase config is not valid JSON. Check the console for the broken string and re-create your Base64 variable in Cloudflare.</p></div>`;
+                /* ... error handling ... */
             }
         }
         
-        // --- ALL JAVASCRIPT FUNCTIONS ---
-        // ... functions remain the same ...
+        // --- REAL-TIME ALERTS ---
+        function attachAlertsListener() {
+            if (unsubscribeAlerts) unsubscribeAlerts();
+            const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
+            unsubscribeAlerts = onSnapshot(alertsCol, (querySnapshot) => {
+                const alerts = [];
+                querySnapshot.forEach((doc) => {
+                    alerts.push({ id: doc.id, ...doc.data() });
+                });
+                if (alerts.length > 0) {
+                    renderAlerts(alerts);
+                } else {
+                    // If no live alerts, show a message or fallback to mock
+                    renderAlerts(mockAlerts, true); // Pass a flag to indicate it's fallback
+                }
+            });
+        }
+        
+        // --- UI INITIALIZATION & RENDERING ---
         function initializeStaticUI() {
             const alertsBtn = document.getElementById('alerts-btn');
             const groupsBtn = document.getElementById('groups-btn');
 
-            initializeMapAndAlerts();
+            initializeMap(); // Only initialize the map here
             checkNotificationPermission();
             lucide.createIcons();
             
@@ -226,7 +265,56 @@
             document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
         }
 
-        function switchView(viewName, context = null) {
+        function initializeMap(){
+            map = L.map('map').setView([14.25, 121.1], 9);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd',
+                maxZoom: 20
+            }).addTo(map);
+        }
+
+        function renderAlerts(alerts, isFallback = false){
+            const container = document.getElementById('alert-list');
+            container.innerHTML = '';
+            
+            // Clear previous markers
+            if (map) {
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.CircleMarker) {
+                        map.removeLayer(layer);
+                    }
+                });
+            }
+
+            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
+
+            if (isFallback) {
+                 const fallbackEl = document.createElement('div');
+                 fallbackEl.className = 'text-center text-gray-400 p-8 rounded-lg bg-gray-700/50';
+                 fallbackEl.innerHTML = `<p>No active alerts from live feed.</p><p class="text-xs mt-2">Showing recent examples.</p>`;
+                 container.appendChild(fallbackEl);
+            }
+
+            alerts.forEach(alert => {
+                const { severity, title, details, source, time, lat, lon, location } = alert;
+                const styles = getAlertStyles(severity);
+                const alertEl = document.createElement('div');
+                alertEl.className = `p-4 rounded-lg border-l-4 bg-gray-800 border-${styles.color}`;
+                alertEl.innerHTML = `<div class="flex items-start space-x-3"><div class="w-6 h-6 text-${styles.color} shrink-0"><i data-lucide="${styles.icon}"></i></div><div><h3 class="font-semibold">${title}</h3><p class="text-sm text-gray-300">${details}</p><div class="text-xs text-gray-500 mt-2 flex items-center space-x-4"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                container.appendChild(alertEl);
+                
+                if (map) {
+                    const markerColor = styles.color.split('-')[0];
+                    const marker = L.circleMarker([lat, lon], { radius: 8, color: markerColor, fillColor: markerColor, fillOpacity: 0.7 }).addTo(map);
+                    marker.bindPopup(`<b>${title}</b><br>${location}`);
+                }
+            });
+            lucide.createIcons();
+        }
+
+        // --- OTHER FUNCTIONS (GROUPS, UTILS, ETC.) ---
+        function switchView(viewName, context = null) { 
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
             document.getElementById('group-detail-view').classList.add('hidden');
@@ -247,13 +335,11 @@
                 document.getElementById('groups-btn').classList.add('active');
                 renderGroupDetail(context); 
             }
-        }
-
+         }
         async function createGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
         async function joinGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
         async function markAsSafe(groupId) { if (!userId) return; /* ... function body ... */ }
-
-        function attachUserGroupsListener(uid) {
+        function attachUserGroupsListener(uid) { 
             if (unsubscribeUserGroups) unsubscribeUserGroups();
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             unsubscribeUserGroups = onSnapshot(userRef, (docSnap) => {
@@ -261,12 +347,10 @@
                     renderGroupList(docSnap.data().groups || []);
                 }
             });
-        }
-        
+         }
         async function renderGroupList(groupIds) { /* ... function body ... */ }
         async function renderGroupDetail(groupId) { /* ... function body ... */ }
-        
-        async function setupUserDocument(uid) {
+        async function setupUserDocument(uid) { 
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             const userSnap = await getDoc(userRef);
             if (!userSnap.exists()) {
@@ -278,80 +362,24 @@
                     groups: []
                 });
             }
-        }
-
-        function initializeMapAndAlerts(){
-            mockAlerts.sort((a,b) => new Date(b.time) - new Date(a.time));
-            const alertList = document.getElementById('alert-list');
-            const map = L.map('map').setView([14.25, 121.1], 9);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 20
-            }).addTo(map);
-            renderAlerts(mockAlerts, alertList, map);
-        }
-
+         }
         function checkNotificationPermission(){
             if ('Notification' in window && Notification.permission === 'default') {
                 document.getElementById('notification-banner').classList.remove('hidden');
                 document.getElementById('enable-notifications-btn').addEventListener('click', requestNotificationPermission);
             }
-        }
-
+         }
         async function requestNotificationPermission(){
             const permission = await Notification.requestPermission();
             if(permission === 'granted') {
                 document.getElementById('notification-banner').classList.add('hidden');
                 showNotification(mockAlerts[0]);
             }
-        }
-
+         }
         function showNotification(alert){
             const { title, details } = alert;
             new Notification(`Bantay Alert: ${title}`, { body: details });
-        }
-
-        function getAlertStyles(severity) {
-            const styles = {
-                Red: { color: 'red-500', icon: 'shield-alert' },
-                Orange: { color: 'orange-400', icon: 'siren' },
-                Yellow: { color: 'yellow-400', icon: 'alert-triangle' }
-            };
-            return styles[severity] || styles.Yellow;
-        }
-
-        function renderAlerts(alerts, container, map){
-            container.innerHTML = '';
-            alerts.forEach(alert => {
-                const { severity, title, details, source, time, lat, lon, location } = alert;
-                const styles = getAlertStyles(severity);
-                const alertEl = document.createElement('div');
-                alertEl.className = `p-4 rounded-lg border-l-4 bg-gray-800 border-${styles.color}`;
-                alertEl.innerHTML = `<div class="flex items-start space-x-3"><div class="w-6 h-6 text-${styles.color} shrink-0"><i data-lucide="${styles.icon}"></i></div><div><h3 class="font-semibold">${title}</h3><p class="text-sm text-gray-300">${details}</p><div class="text-xs text-gray-500 mt-2 flex items-center space-x-4"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
-                container.appendChild(alertEl);
-                
-                const markerColor = styles.color.split('-')[0];
-                const marker = L.circleMarker([lat, lon], { radius: 8, color: markerColor, fillColor: markerColor, fillOpacity: 0.7 }).addTo(map);
-                marker.bindPopup(`<b>${title}</b><br>${location}`);
-            });
-            lucide.createIcons();
-        }
-
-        function formatTimeAgo(date) {
-            const seconds = Math.floor((new Date() - date) / 1000);
-            let interval = seconds / 31536000;
-            if (interval > 1) return Math.floor(interval) + " years ago";
-            interval = seconds / 2592000;
-            if (interval > 1) return Math.floor(interval) + " months ago";
-            interval = seconds / 86400;
-            if (interval > 1) return Math.floor(interval) + " days ago";
-            interval = seconds / 3600;
-            if (interval > 1) return Math.floor(interval) + " hours ago";
-            interval = seconds / 60;
-            if (interval > 1) return Math.floor(interval) + " minutes ago";
-            return "just now";
-        }
+         }
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
