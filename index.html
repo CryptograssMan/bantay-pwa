@@ -142,7 +142,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- MOCK DATA (FALLBACK) ---
         const mockAlerts = [{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Red","title":"Severe Flood Warning","source":"MDRRMO","time":"2025-10-12T09:15:00Z","details":"Red Warning: Life-threatening flooding is imminent in low-lying areas. Evacuate immediately.","lat":14.31,"lon":121.11},{"type":"Typhoon","location":"CALABARZON","severity":"Red","title":"Typhoon Signal No. 3 Raised","source":"PAGASA","time":"2025-10-12T08:00:00Z","details":"Typhoon \"Karding\" is expected to bring intense rainfall and destructive winds to the region. Evacuate low-lying areas.","lat":14.22,"lon":121.1},{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Orange","title":"Heavy Rainfall Warning","source":"PAGASA","time":"2025-10-12T09:05:00Z","details":"Orange Warning: Intense rain (15-30mm/hr) expected over the next hour. Flooding is threatening.","lat":14.31,"lon":121.11},{"type":"Earthquake","location":"22km N of Taal, Batangas","severity":"Yellow","title":"Magnitude 4.2 Earthquake","source":"PHIVOLCS","time":"2025-10-11T21:30:00Z","details":"Tectonic in origin. Aftershocks are possible. No destructive tsunami threat.","lat":14.1,"lon":121.0}];
@@ -291,7 +291,7 @@
 
             if (isFallback) {
                  const fallbackEl = document.createElement('div');
-                 fallbackEl.className = 'text-center text-gray-400 p-8 rounded-lg bg-gray-700/50';
+                 fallbackEl.className = 'text-center text-gray-400 p-8 rounded-lg bg-gray-700/ ৫০';
                  fallbackEl.innerHTML = `<p>No active alerts from live feed.</p><p class="text-xs mt-2">Showing recent examples.</p>`;
                  container.appendChild(fallbackEl);
             }
