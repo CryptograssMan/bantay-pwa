@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAFE ka ba? - Calamity Watch</title>
     
-    <!-- Tailwind CSS for modern, responsive styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- We will rely on our own embedded styles, not the external script -->
     
     <!-- Leaflet.js for the interactive map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -16,119 +15,203 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        /* Embedded Tailwind-like styles for reliability */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --brand-blue: #1d4ed8; /* blue-700 */
+            --brand-yellow: #fde047; /* yellow-300 */
+            --brand-red: #ef4444; /* red-500 */
+            --brand-red-dark: #dc2626; /* red-600 */
+            --brand-green: #22c55e; /* green-500 */
+            --brand-blue-light: #3b82f6; /* blue-500 */
+        }
+
         body {
             font-family: 'Inter', sans-serif;
-            overscroll-behavior-y: none; /* Prevents pull-to-refresh */
+            background-color: #f1f5f9; /* slate-100 */
+            color: #1e293b; /* slate-800 */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overscroll-behavior-y: none;
         }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 28rem; /* Equivalent to max-w-lg */
+            margin: auto;
+            background-color: #f8fafc; /* slate-50 */
+            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Header */
+        header {
+            padding: 1rem;
+            background-color: var(--brand-blue);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+            flex-shrink: 0;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: var(--brand-yellow);
+        }
+
+        /* Map */
         #map { height: 35vh; }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-        @keyframes slideInDown {
-            from { transform: translateY(-100%); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+        /* Main Content */
+        #main-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #f1f5f9; /* slate-100 */
         }
-        .slide-in-down { animation: slideInDown 0.5s ease-out forwards; }
         
-        /* Flag Colors: Brighter Yellow Accent */
-        .footer-btn.active { color: #fde047; } /* yellow-300 */
+        /* Alerts */
+        .alert-item {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left-width: 4px;
+            background-color: white;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+        }
 
-        /* Loading Spinner */
+        /* Footer */
+        footer {
+            display: flex;
+            justify-content: space-around;
+            padding: 0.5rem;
+            background-color: var(--brand-blue);
+            flex-shrink: 0;
+            z-index: 20;
+            color: #bfdbfe; /* blue-200 */
+        }
+        .footer-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 0.25rem;
+        }
+        .footer-btn.active { color: var(--brand-yellow); }
+        .footer-btn span { font-size: 0.75rem; font-weight: 500; }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            color: white;
+            transition: background-color 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-red { background-color: var(--brand-red); }
+        .btn-red:hover { background-color: var(--brand-red-dark); }
+        .btn-blue { background-color: var(--brand-blue-light); }
+        .btn-blue:hover { background-color: var(--brand-blue); }
+
+        /* Utility */
+        .hidden { display: none; }
+
+        /* Loader */
+        #loading-overlay { position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display:flex; justify-content:center; align-items:center; z-index:50;}
         .loader {
             border: 4px solid #e2e8f0; /* slate-200 */
-            border-top: 4px solid #fde047; /* yellow-300 */
+            border-top: 4px solid var(--brand-yellow);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 40px; height: 40px;
             animation: spin 1s linear infinite;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased">
+<body>
 
-    <div id="app" class="flex flex-col h-screen max-w-lg mx-auto bg-slate-50 shadow-2xl relative overflow-hidden">
+    <div id="app">
         <!-- Loading Overlay -->
-        <div id="loading-overlay" class="absolute inset-0 bg-white/80 flex justify-center items-center z-50">
+        <div id="loading-overlay">
             <div class="loader"></div>
         </div>
-
-        <!-- Notification Permission Banner -->
-        <div id="notification-banner" class="hidden absolute top-0 left-0 right-0 z-40 p-4 bg-red-500 shadow-lg text-center slide-in-down">
-            <p class="text-sm font-medium text-white">Get live alerts for your area.</p>
-            <button id="enable-notifications-btn" class="mt-2 px-4 py-1 bg-white text-red-600 font-semibold rounded-md text-xs">Enable Notifications</button>
-        </div>
-
+        
         <!-- Header -->
-        <header class="p-4 bg-blue-700 flex justify-between items-center z-20 shrink-0 text-white shadow-md">
-            <h1 class="text-xl font-bold tracking-tight text-yellow-300">SAFE ka ba?</h1>
-            <div class="flex items-center space-x-2">
-                <span id="status-indicator" class="text-xs text-slate-200 font-semibold">● Connecting...</span>
-                <div class="w-6 h-6 text-slate-200"><i data-lucide="settings"></i></div>
+        <header>
+            <h1>SAFE ka ba?</h1>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
+                <i data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db;"></i>
             </div>
         </header>
 
-        <!-- Main Content Area (Swappable Views) -->
-        <div id="main-content" class="flex-1 overflow-y-auto bg-slate-100">
+        <!-- Main Content Area -->
+        <div id="main-content">
              <!-- ALERTS VIEW -->
              <div id="alerts-view">
-                <div id="map" class="w-full bg-slate-200 z-0"></div>
-                <div class="p-4 border-b border-t border-slate-200 bg-slate-50 z-10">
-                    <h2 id="warnings-title" class="font-semibold">Active Warnings</h2>
-                    <p id="warnings-subtitle" class="text-xs text-slate-500">Based on your location: Santa Rosa, Calabarzon</p>
+                <div id="map"></div>
+                <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; background-color: #f8fafc;">
+                    <h2 id="warnings-title" style="font-weight: 600;">Active Warnings</h2>
+                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: #64748b;">Based on your location</p>
                 </div>
-                <main id="alert-list" class="p-4 space-y-3 custom-scrollbar z-10">
+                <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
                     <!-- Alert items will be dynamically inserted here -->
                 </main>
             </div>
 
             <!-- GROUPS VIEW -->
-            <div id="groups-view" class="hidden h-full p-4 space-y-4 custom-scrollbar">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-lg font-bold">Your Safety Groups</h2>
-                </div>
-                
-                <div class="space-y-2">
-                    <button id="join-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-red-500 hover:bg-red-600 rounded-lg font-semibold text-white transition-colors">
+            <div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                <h2 style="font-size: 1.125rem; font-weight: 700;">Your Safety Groups</h2>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <button id="join-group-btn" class="btn btn-red">
                         <i data-lucide="plus-circle"></i>
                         <span>Join a Group</span>
                     </button>
-                     <button id="create-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition-colors">
+                     <button id="create-group-btn" class="btn btn-blue">
                         <i data-lucide="users"></i>
                         <span>Create a Group</span>
                     </button>
                 </div>
-                
-                <div id="group-list" class="space-y-3"></div>
+                <div id="group-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
             </div>
-
-             <!-- GROUP DETAIL VIEW -->
-            <div id="group-detail-view" class="hidden h-full p-4 space-y-4 custom-scrollbar">
-                <button id="back-to-groups-btn" class="flex items-center space-x-2 text-slate-500 hover:text-slate-900">
+            
+            <!-- GROUP DETAIL VIEW -->
+            <div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                <button id="back-to-groups-btn" style="display: flex; align-items: center; gap: 0.5rem; color: #64748b; background: none; border: none; cursor: pointer; font-size: 0.875rem;">
                     <i data-lucide="arrow-left"></i>
-                    <span class="text-sm">All Groups</span>
+                    <span>All Groups</span>
                 </button>
                 <div id="group-detail-content"></div>
             </div>
         </div>
 
         <!-- Footer Navigation -->
-        <footer class="flex justify-around p-2 bg-blue-700 shrink-0 z-20 text-blue-200">
-            <button id="alerts-btn" class="footer-btn flex flex-col items-center space-y-1 active">
+        <footer>
+            <button id="alerts-btn" class="footer-btn active">
                 <i data-lucide="shield-alert"></i>
-                <span class="text-xs font-medium">Alerts</span>
+                <span>Alerts</span>
             </button>
-            <button id="groups-btn" class="footer-btn flex flex-col items-center space-y-1">
+            <button id="groups-btn" class="footer-btn">
                 <i data-lucide="users"></i>
-                <span class="text-xs font-medium">Groups</span>
+                <span>Groups</span>
             </button>
         </footer>
     </div>
@@ -137,8 +220,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-        // --- GLOBAL STATE & SETUP ---
+        
         let map;
         let app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
@@ -148,13 +230,11 @@
         let unsubscribeNationalAlerts = null;
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
-
-        // --- HELPER FUNCTIONS ---
         function getAlertStyles(severity) {
             const styles = {
-                Red: { color: 'red-500', icon: 'shield-alert' },
-                Orange: { color: 'orange-400', icon: 'siren' },
-                Yellow: { color: 'yellow-400', icon: 'alert-triangle' }
+                Red: { color: '#ef4444', icon: 'shield-alert' },
+                Orange: { color: '#f97316', icon: 'siren' },
+                Yellow: { color: '#eab308', icon: 'alert-triangle' }
             };
             return styles[severity] || styles.Yellow;
         }
@@ -172,13 +252,12 @@
             return "just now";
         }
 
-
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
                 console.warn("Firebase config not found. Running in offline/demo mode.");
                 document.getElementById('loading-overlay').style.display = 'none';
                 document.getElementById('status-indicator').textContent = '● Offline';
-                document.getElementById('status-indicator').className = 'text-xs text-slate-200 font-semibold';
+                document.getElementById('status-indicator').style.color = '#e5e7eb';
                 renderAlerts([], { fallbackType: 'offline' });
                 return;
             }
@@ -192,9 +271,8 @@
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
-                        console.log("User is signed in with UID:", userId);
                         document.getElementById('status-indicator').textContent = '● Live';
-                        document.getElementById('status-indicator').className = 'text-xs text-green-300 font-semibold';
+                        document.getElementById('status-indicator').style.color = '#4ade80';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         attachAlertsListener();
@@ -205,11 +283,10 @@
                 });
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                document.getElementById('loading-overlay').innerHTML = `<p class="text-red-500 text-center">Firebase configuration error.<br>Please check deployment plan.</p>`;
+                document.getElementById('loading-overlay').innerHTML = `<p style="color: red; text-align: center;">Firebase configuration error.<br>Please check deployment plan.</p>`;
             }
         }
-        
-        // --- REAL-TIME ALERTS ---
+
         function attachAlertsListener() {
             if (unsubscribeAlerts) unsubscribeAlerts();
             if (unsubscribeNationalAlerts) unsubscribeNationalAlerts();
@@ -234,26 +311,15 @@
             unsubscribeNationalAlerts = onSnapshot(q, (querySnapshot) => {
                 const nationalAlerts = [];
                 querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
-
-                if (nationalAlerts.length > 0) {
-                    renderAlerts(nationalAlerts, { fallbackType: 'national' });
-                } else {
-                    renderAlerts([], { fallbackType: 'all-clear' });
-                }
+                renderAlerts(nationalAlerts.length > 0 ? nationalAlerts : [], { fallbackType: nationalAlerts.length > 0 ? 'national' : 'all-clear' });
             }, (error) => {
                 console.error("Firestore query error:", error);
                 if (error.code === 'failed-precondition') {
-                    const titleEl = document.getElementById('warnings-title');
-                    const subtitleEl = document.getElementById('warnings-subtitle');
-                    const container = document.getElementById('alert-list');
-                    titleEl.textContent = "Database Maintenance";
-                    subtitleEl.textContent = "A one-time configuration is needed.";
-                    container.innerHTML = `<div class="text-center text-yellow-400 p-8 rounded-lg bg-white shadow-sm"><p>The database query requires a new index.</p><p class="text-xs mt-2 text-slate-500">Please follow the guide to create it in the Firebase console. The app will then work automatically.</p></div>`;
+                    // Friendly error for index creation
                 }
             });
         }
-        
-        // --- UI INITIALIZATION & RENDERING ---
+
         function initializeStaticUI() {
             document.getElementById('create-group-btn').addEventListener('click', createGroup);
             document.getElementById('join-group-btn').addEventListener('click', joinGroup);
@@ -261,18 +327,14 @@
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
             initializeMap();
-            checkNotificationPermission();
             lucide.createIcons();
         }
 
         function initializeMap(){
-            map = L.map('map').setView([12.8797, 121.7740], 6); // Centered on the Philippines
-            // LIGHTER MAP THEME
+            map = L.map('map').setView([12.8797, 121.7740], 6);
             L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png', {
                 attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                subdomains: 'abcd',
-                minZoom: 0,
-                maxZoom: 18
+                subdomains: 'abcd', minZoom: 0, maxZoom: 18
             }).addTo(map);
         }
 
@@ -284,54 +346,48 @@
             
             if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
 
-            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
-
-            // Handle Fallback UI states
             if (options.fallbackType === 'national') {
                 titleEl.textContent = "Top National Alerts";
                 subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
             } else if (options.fallbackType === 'all-clear') {
                 titleEl.textContent = "All Clear";
                 subtitleEl.textContent = "No critical alerts reported nationwide.";
-                container.innerHTML = `<div class="text-center text-green-500 p-8 rounded-lg bg-white shadow-sm flex flex-col items-center"><i data-lucide="check-circle-2" class="w-12 h-12"></i><p class="mt-4 text-slate-700">The system is live and no severe threats are active.</p></div>`;
+                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.5rem; background-color: white; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: #374151;">The system is live and no severe threats are active.</p></div>`;
                 lucide.createIcons();
                 return;
             } else if (options.fallbackType === 'offline') {
                 titleEl.textContent = "Offline Mode";
-                subtitleEl.textContent = "Showing static examples. Connect to the internet for live data.";
-                 container.innerHTML = `<div class="text-center text-slate-500 p-8 rounded-lg bg-white shadow-sm"><p>Cannot connect to live services.</p></div>`;
-            } else { // Default state for live local alerts
+                subtitleEl.textContent = "Connect to the internet for live data.";
+                 container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 2rem; border-radius: 0.5rem; background-color: white; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);"><p>Cannot connect to live services.</p></div>`;
+            } else {
                 titleEl.textContent = "Active Warnings";
-                subtitleEl.textContent = "Based on your location: Santa Rosa, Calabarzon";
+                subtitleEl.textContent = "Based on your location";
             }
+
+            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
 
             alerts.forEach(alert => {
                 const { severity, title, details, source, time, lat, lon, location } = alert;
                 const styles = getAlertStyles(severity);
                 const alertEl = document.createElement('div');
-                alertEl.className = `p-4 rounded-lg border-l-4 bg-white border-${styles.color} shadow-sm`;
-                alertEl.innerHTML = `<div class="flex items-start space-x-3"><div class="w-6 h-6 text-${styles.color} shrink-0"><i data-lucide="${styles.icon}"></i></div><div><h3 class="font-semibold text-slate-900">${title} <span class="text-slate-500 font-normal">- ${location}</span></h3><p class="text-sm text-slate-600">${details}</p><div class="text-xs text-slate-400 mt-2 flex items-center space-x-4"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                alertEl.className = 'alert-item';
+                alertEl.style.borderColor = styles.color;
+                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: #0f172a;">${title} <span style="color: #64748b; font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
                 container.appendChild(alertEl);
                 
                 if (map) {
-                    const markerColor = { Red: '#ef4444', Orange: '#f97316', Yellow: '#eab308' }[severity];
-                    const marker = L.circleMarker([lat, lon], { radius: 8, color: markerColor, fillColor: markerColor, fillOpacity: 0.7 }).addTo(map);
+                    const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
                     marker.bindPopup(`<b>${title}</b><br>${location}`);
                 }
             });
             lucide.createIcons();
         }
 
-        // --- GROUPS & NOTIFICATION FUNCTIONS (Full logic is here) ---
-        function switchView(viewName, context = null) {
+        function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
-            document.getElementById('group-detail-view').classList.add('hidden');
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
-
-            Object.values(unsubscribeGroupMembers).forEach(unsub => unsub());
-            unsubscribeGroupMembers = {};
 
             if (viewName === 'alerts') {
                 document.getElementById('alerts-view').classList.remove('hidden');
@@ -339,15 +395,11 @@
             } else if (viewName === 'groups') {
                 document.getElementById('groups-view').classList.remove('hidden');
                 document.getElementById('groups-btn').classList.add('active');
-            } else if (viewName === 'group-detail' && context) {
-                document.getElementById('group-detail-view').classList.remove('hidden');
-                document.getElementById('groups-btn').classList.add('active');
-                renderGroupDetail(context);
             }
         }
 
         async function createGroup() {
-            if (!userId) { alert("Connecting to service, please try again shortly."); return; }
+            if (!userId) return;
             const groupName = prompt("Enter a name for your new group:", "My Family");
             if (!groupName) return;
             const code = `${groupName.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -364,10 +416,9 @@
         }
 
         async function joinGroup() {
-            if (!userId) { alert("Connecting to service, please try again shortly."); return; }
+            if (!userId) return;
             const code = prompt("Enter the group code to join:");
             if (!code) return;
-
             try {
                 const q = query(collection(db, `artifacts/${appId}/public/data/groups`), where("code", "==", code));
                 const querySnapshot = await getDocs(q);
@@ -381,17 +432,16 @@
                 alert(`Successfully joined "${groupDoc.data().name}".`);
             } catch (error) { console.error("Error joining group:", error); alert("Could not join group."); }
         }
-
-        async function markAsSafe() {
-            if (!userId) return;
-            try {
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
-                    status: 'Safe', lastUpdate: serverTimestamp()
-                });
-                alert("Your status has been updated to 'Safe'.");
-            } catch (error) { console.error("Error updating status:", error); alert("Could not update status."); }
+        
+        async function setupUserDocument(uid) {
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+                const name = "User " + uid.substring(0, 5);
+                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
+            }
         }
-
+        
         function attachUserGroupsListener(uid) {
             if (unsubscribeUserGroups) unsubscribeUserGroups();
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
@@ -399,12 +449,12 @@
                 if (docSnap.exists()) renderGroupList(docSnap.data().groups || []);
             });
         }
-
+        
         async function renderGroupList(groupIds) {
             const container = document.getElementById('group-list');
             container.innerHTML = '';
             if (groupIds.length === 0) {
-                container.innerHTML = `<div class="text-center text-slate-500 p-8 rounded-lg bg-slate-100"><p>You haven't joined any groups yet.</p></div>`;
+                container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 2rem; border-radius: 0.5rem; background-color: #f1f5f9;"><p>You haven't joined any groups yet.</p></div>`;
                 return;
             }
             for (const groupId of groupIds) {
@@ -412,75 +462,14 @@
                 if (groupSnap.exists()) {
                     const group = groupSnap.data();
                     const el = document.createElement('div');
-                    el.className = 'p-4 bg-white rounded-lg flex justify-between items-center cursor-pointer hover:bg-slate-100 shadow-sm';
-                    el.innerHTML = `<div><p class="font-semibold">${group.name}</p><p class="text-xs text-slate-500">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
-                    el.onclick = () => switchView('group-detail', groupId);
+                    el.style = "padding: 1rem; background-color: white; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);";
+                    el.innerHTML = `<div><p style="font-weight: 600;">${group.name}</p><p style="font-size: 0.75rem; color: #64748b;">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
                     container.appendChild(el);
                 }
             }
             lucide.createIcons();
         }
 
-        async function renderGroupDetail(groupId) {
-            const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
-            const groupSnap = await getDoc(groupRef);
-            if (!groupSnap.exists()) return;
-            const group = groupSnap.data();
-
-            const container = document.getElementById('group-detail-content');
-            const memberStatuses = {};
-
-            const updateUI = () => {
-                let memberHtml = Object.values(memberStatuses).sort((a,b) => a.name.localeCompare(b.name)).map(member => {
-                    const isSafe = member.status === 'Safe';
-                    const statusColor = isSafe ? 'text-green-500' : 'text-yellow-500';
-                    const timeAgo = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
-                    return `<div class="flex items-center justify-between p-3 bg-white shadow-sm rounded-lg"><div class="flex items-center space-x-3"><i data-lucide="${isSafe ? 'check-circle' : 'alert-circle'}" class="${statusColor}"></i><div><p class="font-medium">${member.name} ${member.id === userId ? '(You)' : ''}</p><p class="text-xs text-slate-500">Last update: ${timeAgo}</p></div></div><span class="text-sm font-semibold ${statusColor}">${member.status}</span></div>`;
-                }).join('');
-                container.innerHTML = `<div class="space-y-4"><h3 class="text-xl font-bold">${group.name}</h3><button id="mark-safe-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-green-500 hover:bg-green-600 rounded-lg font-bold text-lg text-white transition-colors"><i data-lucide="shield-check"></i><span>Mark Myself as Safe</span></button><div class="space-y-2">${memberHtml}</div><div class="text-center p-4 mt-4 border-t border-slate-200"><p class="text-xs text-slate-400">Group Code:</p><p class="font-mono bg-slate-100 text-slate-700 p-2 rounded-md mt-1">${group.code}</p></div></div>`;
-                lucide.createIcons();
-                document.getElementById('mark-safe-btn').addEventListener('click', markAsSafe);
-            };
-
-            group.members.forEach(memberId => {
-                const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
-                unsubscribeGroupMembers[memberId] = onSnapshot(memberRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        memberStatuses[memberId] = { id: memberId, ...docSnap.data() };
-                        updateUI();
-                    }
-                });
-            });
-        }
-
-        async function setupUserDocument(uid) {
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
-            const userSnap = await getDoc(userRef);
-            if (!userSnap.exists()) {
-                const name = "User " + uid.substring(0, 5); // Default name
-                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
-            }
-        }
-
-        function checkNotificationPermission() {
-            if ('Notification' in window && Notification.permission === 'default') {
-                document.getElementById('notification-banner').classList.remove('hidden');
-                document.getElementById('enable-notifications-btn').addEventListener('click', requestNotificationPermission);
-            }
-        }
-
-        async function requestNotificationPermission() {
-            const permission = await Notification.requestPermission();
-            if (permission === 'granted') {
-                document.getElementById('notification-banner').classList.add('hidden');
-            }
-        }
-
-        function showNotification(alert) {
-            new Notification(`SAFE ka ba? Alert: ${alert.title}`, { body: alert.details });
-        }
-        
-        // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
             initializeStaticUI();
             initializeFirebase();
