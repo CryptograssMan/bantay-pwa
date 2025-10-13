@@ -34,13 +34,13 @@
         }
         .slide-in-down { animation: slideInDown 0.5s ease-out forwards; }
         
-        /* New Accent Color: Yellow */
-        .footer-btn.active { color: #f59e0b; } /* amber-500 */
+        /* Flag Colors: Brighter Yellow Accent */
+        .footer-btn.active { color: #fde047; } /* yellow-300 */
 
         /* Loading Spinner */
         .loader {
             border: 4px solid #e2e8f0; /* slate-200 */
-            border-top: 4px solid #f59e0b; /* amber-500 */
+            border-top: 4px solid #fde047; /* yellow-300 */
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -53,35 +53,35 @@
         }
     </style>
 </head>
-<body class="bg-slate-200 text-slate-800 antialiased">
+<body class="bg-slate-100 text-slate-800 antialiased">
 
-    <div id="app" class="flex flex-col h-screen max-w-lg mx-auto bg-white shadow-2xl relative overflow-hidden">
+    <div id="app" class="flex flex-col h-screen max-w-lg mx-auto bg-slate-50 shadow-2xl relative overflow-hidden">
         <!-- Loading Overlay -->
         <div id="loading-overlay" class="absolute inset-0 bg-white/80 flex justify-center items-center z-50">
             <div class="loader"></div>
         </div>
 
         <!-- Notification Permission Banner -->
-        <div id="notification-banner" class="hidden absolute top-0 left-0 right-0 z-40 p-4 bg-amber-500 shadow-lg text-center slide-in-down">
+        <div id="notification-banner" class="hidden absolute top-0 left-0 right-0 z-40 p-4 bg-red-500 shadow-lg text-center slide-in-down">
             <p class="text-sm font-medium text-white">Get live alerts for your area.</p>
-            <button id="enable-notifications-btn" class="mt-2 px-4 py-1 bg-white text-amber-600 font-semibold rounded-md text-xs">Enable Notifications</button>
+            <button id="enable-notifications-btn" class="mt-2 px-4 py-1 bg-white text-red-600 font-semibold rounded-md text-xs">Enable Notifications</button>
         </div>
 
         <!-- Header -->
-        <header class="p-4 bg-white border-b border-slate-200 flex justify-between items-center z-20 shrink-0">
-            <h1 class="text-xl font-bold tracking-tight text-amber-500">SAFE ka ba?</h1>
+        <header class="p-4 bg-blue-700 flex justify-between items-center z-20 shrink-0 text-white shadow-md">
+            <h1 class="text-xl font-bold tracking-tight text-yellow-300">SAFE ka ba?</h1>
             <div class="flex items-center space-x-2">
-                <span id="status-indicator" class="text-xs text-slate-500 font-semibold">● Connecting...</span>
-                <div class="w-6 h-6 text-slate-400"><i data-lucide="settings"></i></div>
+                <span id="status-indicator" class="text-xs text-slate-200 font-semibold">● Connecting...</span>
+                <div class="w-6 h-6 text-slate-200"><i data-lucide="settings"></i></div>
             </div>
         </header>
 
         <!-- Main Content Area (Swappable Views) -->
-        <div id="main-content" class="flex-1 overflow-y-auto bg-slate-50">
+        <div id="main-content" class="flex-1 overflow-y-auto bg-slate-100">
              <!-- ALERTS VIEW -->
              <div id="alerts-view">
-                <div id="map" class="w-full bg-slate-300 z-0"></div>
-                <div class="p-4 border-b border-t border-slate-200 bg-white z-10">
+                <div id="map" class="w-full bg-slate-200 z-0"></div>
+                <div class="p-4 border-b border-t border-slate-200 bg-slate-50 z-10">
                     <h2 id="warnings-title" class="font-semibold">Active Warnings</h2>
                     <p id="warnings-subtitle" class="text-xs text-slate-500">Based on your location: Santa Rosa, Calabarzon</p>
                 </div>
@@ -97,11 +97,11 @@
                 </div>
                 
                 <div class="space-y-2">
-                    <button id="join-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition-colors">
+                    <button id="join-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-red-500 hover:bg-red-600 rounded-lg font-semibold text-white transition-colors">
                         <i data-lucide="plus-circle"></i>
                         <span>Join a Group</span>
                     </button>
-                     <button id="create-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-slate-200 hover:bg-slate-300 rounded-lg font-semibold transition-colors">
+                     <button id="create-group-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold text-white transition-colors">
                         <i data-lucide="users"></i>
                         <span>Create a Group</span>
                     </button>
@@ -121,12 +121,12 @@
         </div>
 
         <!-- Footer Navigation -->
-        <footer class="flex justify-around p-2 bg-white border-t border-slate-200 shrink-0 z-20">
-            <button id="alerts-btn" class="footer-btn flex flex-col items-center space-y-1 text-slate-500 active">
+        <footer class="flex justify-around p-2 bg-blue-700 shrink-0 z-20 text-blue-200">
+            <button id="alerts-btn" class="footer-btn flex flex-col items-center space-y-1 active">
                 <i data-lucide="shield-alert"></i>
                 <span class="text-xs font-medium">Alerts</span>
             </button>
-            <button id="groups-btn" class="footer-btn flex flex-col items-center space-y-1 text-slate-500">
+            <button id="groups-btn" class="footer-btn flex flex-col items-center space-y-1">
                 <i data-lucide="users"></i>
                 <span class="text-xs font-medium">Groups</span>
             </button>
@@ -178,7 +178,7 @@
                 console.warn("Firebase config not found. Running in offline/demo mode.");
                 document.getElementById('loading-overlay').style.display = 'none';
                 document.getElementById('status-indicator').textContent = '● Offline';
-                document.getElementById('status-indicator').className = 'text-xs text-slate-500 font-semibold';
+                document.getElementById('status-indicator').className = 'text-xs text-slate-200 font-semibold';
                 renderAlerts([], { fallbackType: 'offline' });
                 return;
             }
@@ -194,7 +194,7 @@
                         userId = user.uid;
                         console.log("User is signed in with UID:", userId);
                         document.getElementById('status-indicator').textContent = '● Live';
-                        document.getElementById('status-indicator').className = 'text-xs text-green-500 font-semibold';
+                        document.getElementById('status-indicator').className = 'text-xs text-green-300 font-semibold';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         attachAlertsListener();
@@ -248,7 +248,7 @@
                     const container = document.getElementById('alert-list');
                     titleEl.textContent = "Database Maintenance";
                     subtitleEl.textContent = "A one-time configuration is needed.";
-                    container.innerHTML = `<div class="text-center text-yellow-400 p-8 rounded-lg bg-slate-100"><p>The database query requires a new index.</p><p class="text-xs mt-2">Please follow the guide to create it in the Firebase console. The app will then work automatically.</p></div>`;
+                    container.innerHTML = `<div class="text-center text-yellow-400 p-8 rounded-lg bg-white shadow-sm"><p>The database query requires a new index.</p><p class="text-xs mt-2 text-slate-500">Please follow the guide to create it in the Firebase console. The app will then work automatically.</p></div>`;
                 }
             });
         }
@@ -267,7 +267,7 @@
 
         function initializeMap(){
             map = L.map('map').setView([12.8797, 121.7740], 6); // Centered on the Philippines
-            // NEW MAP TILE LAYER with blue ocean
+            // LIGHTER MAP THEME
             L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png', {
                 attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 subdomains: 'abcd',
@@ -293,13 +293,13 @@
             } else if (options.fallbackType === 'all-clear') {
                 titleEl.textContent = "All Clear";
                 subtitleEl.textContent = "No critical alerts reported nationwide.";
-                container.innerHTML = `<div class="text-center text-green-500 p-8 rounded-lg bg-slate-100 flex flex-col items-center"><i data-lucide="check-circle-2" class="w-12 h-12"></i><p class="mt-4">The system is live and no severe threats are active.</p></div>`;
+                container.innerHTML = `<div class="text-center text-green-500 p-8 rounded-lg bg-white shadow-sm flex flex-col items-center"><i data-lucide="check-circle-2" class="w-12 h-12"></i><p class="mt-4 text-slate-700">The system is live and no severe threats are active.</p></div>`;
                 lucide.createIcons();
                 return;
             } else if (options.fallbackType === 'offline') {
                 titleEl.textContent = "Offline Mode";
                 subtitleEl.textContent = "Showing static examples. Connect to the internet for live data.";
-                 container.innerHTML = `<div class="text-center text-slate-500 p-8 rounded-lg bg-slate-100"><p>Cannot connect to live services.</p></div>`;
+                 container.innerHTML = `<div class="text-center text-slate-500 p-8 rounded-lg bg-white shadow-sm"><p>Cannot connect to live services.</p></div>`;
             } else { // Default state for live local alerts
                 titleEl.textContent = "Active Warnings";
                 subtitleEl.textContent = "Based on your location: Santa Rosa, Calabarzon";
@@ -433,7 +433,7 @@
             const updateUI = () => {
                 let memberHtml = Object.values(memberStatuses).sort((a,b) => a.name.localeCompare(b.name)).map(member => {
                     const isSafe = member.status === 'Safe';
-                    const statusColor = isSafe ? 'text-green-500' : 'text-amber-500';
+                    const statusColor = isSafe ? 'text-green-500' : 'text-yellow-500';
                     const timeAgo = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
                     return `<div class="flex items-center justify-between p-3 bg-white shadow-sm rounded-lg"><div class="flex items-center space-x-3"><i data-lucide="${isSafe ? 'check-circle' : 'alert-circle'}" class="${statusColor}"></i><div><p class="font-medium">${member.name} ${member.id === userId ? '(You)' : ''}</p><p class="text-xs text-slate-500">Last update: ${timeAgo}</p></div></div><span class="text-sm font-semibold ${statusColor}">${member.status}</span></div>`;
                 }).join('');
