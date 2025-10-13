@@ -56,7 +56,6 @@
 <body class="bg-gray-900 text-white antialiased">
 
     <div id="app" class="flex flex-col h-screen max-w-lg mx-auto bg-gray-800 shadow-2xl relative overflow-hidden">
-        <!-- ... HTML body remains the same ... -->
         <!-- Loading Overlay -->
         <div id="loading-overlay" class="absolute inset-0 bg-gray-900/80 flex justify-center items-center z-50">
             <div class="loader"></div>
@@ -83,8 +82,8 @@
              <div id="alerts-view">
                 <div id="map" class="w-full bg-gray-700 z-0"></div>
                 <div class="p-4 border-b border-t border-gray-700 bg-gray-900 z-10">
-                    <h2 class="font-semibold">Active Warnings</h2>
-                    <p class="text-xs text-gray-400">Based on your location: Santa Rosa, Calabarzon</p>
+                    <h2 id="warnings-title" class="font-semibold">Active Warnings</h2>
+                    <p id="warnings-subtitle" class="text-xs text-gray-400">Based on your location: Santa Rosa, Calabarzon</p>
                 </div>
                 <main id="alert-list" class="p-4 space-y-3 custom-scrollbar z-10">
                     <!-- Alert items will be dynamically inserted here -->
@@ -142,18 +141,16 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, serverTimestamp, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // --- MOCK DATA (FALLBACK) ---
-        const mockAlerts = [{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Red","title":"Severe Flood Warning","source":"MDRRMO","time":"2025-10-12T09:15:00Z","details":"Red Warning: Life-threatening flooding is imminent in low-lying areas. Evacuate immediately.","lat":14.31,"lon":121.11},{"type":"Typhoon","location":"CALABARZON","severity":"Red","title":"Typhoon Signal No. 3 Raised","source":"PAGASA","time":"2025-10-12T08:00:00Z","details":"Typhoon \"Karding\" is expected to bring intense rainfall and destructive winds to the region. Evacuate low-lying areas.","lat":14.22,"lon":121.1},{"type":"Flood","location":"Santa Rosa, Laguna","severity":"Orange","title":"Heavy Rainfall Warning","source":"PAGASA","time":"2025-10-12T09:05:00Z","details":"Orange Warning: Intense rain (15-30mm/hr) expected over the next hour. Flooding is threatening.","lat":14.31,"lon":121.11},{"type":"Earthquake","location":"22km N of Taal, Batangas","severity":"Yellow","title":"Magnitude 4.2 Earthquake","source":"PHIVOLCS","time":"2025-10-11T21:30:00Z","details":"Tectonic in origin. Aftershocks are possible. No destructive tsunami threat.","lat":14.1,"lon":121.0}];
-        
         // --- GLOBAL STATE & SETUP ---
         let app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
         let unsubscribeUserGroups = null; 
         let unsubscribeGroupMembers = {}; 
         let unsubscribeAlerts = null;
-        let map; // Make map a global variable
+        let unsubscribeNationalAlerts = null;
+        let map; 
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
         // --- HELPER FUNCTIONS ---
@@ -163,26 +160,19 @@
                 Orange: { color: 'orange-400', icon: 'siren' },
                 Yellow: { color: 'yellow-400', icon: 'alert-triangle' }
             };
-            const style = styles[severity];
-            if (style) {
-                return style;
-            }
-            // Fallback for unknown severity levels
-            return styles.Yellow;
+            return styles[severity] || styles.Yellow;
         }
 
         function formatTimeAgo(date) {
             const seconds = Math.floor((new Date() - date) / 1000);
-            let interval = seconds / 31536000;
-            if (interval > 1) return Math.floor(interval) + " years ago";
-            interval = seconds / 2592000;
-            if (interval > 1) return Math.floor(interval) + " months ago";
-            interval = seconds / 86400;
-            if (interval > 1) return Math.floor(interval) + " days ago";
-            interval = seconds / 3600;
-            if (interval > 1) return Math.floor(interval) + " hours ago";
-            interval = seconds / 60;
-            if (interval > 1) return Math.floor(interval) + " minutes ago";
+            if (seconds < 60) return "just now";
+            const intervals = { 'year': 31536000, 'month': 2592000, 'day': 86400, 'hour': 3600, 'minute': 60 };
+            for (let unit in intervals) {
+                let interval = Math.floor(seconds / intervals[unit]);
+                if (interval >= 1) {
+                    return interval + " " + unit + (interval > 1 ? 's' : '') + " ago";
+                }
+            }
             return "just now";
         }
 
@@ -190,21 +180,14 @@
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
                 console.warn("Firebase config not found. Running in offline/demo mode.");
                 document.getElementById('loading-overlay').style.display = 'none';
-                const statusIndicator = document.getElementById('status-indicator');
-                statusIndicator.textContent = '● Offline';
-                statusIndicator.className = 'text-xs text-yellow-400 font-semibold';
-                renderAlerts(mockAlerts); // Render mock data in offline mode
+                document.getElementById('status-indicator').textContent = '● Offline';
+                document.getElementById('status-indicator').className = 'text-xs text-yellow-400 font-semibold';
+                renderAlerts([], { fallbackType: 'offline' });
                 return;
             }
 
-            let decodedConfig;
-            try { decodedConfig = atob(firebaseConfigB64); } 
-            catch (e) { /* ... error handling ... */ return; }
-
-            const cleanedConfig = decodedConfig.trim();
-
             try {
-                const firebaseConfig = JSON.parse(cleanedConfig);
+                const firebaseConfig = JSON.parse(atob(firebaseConfigB64).trim());
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -213,87 +196,105 @@
                     if (user) {
                         userId = user.uid;
                         console.log("User is signed in with UID:", userId);
-                        const statusIndicator = document.getElementById('status-indicator');
-                        statusIndicator.textContent = '● Live';
-                        statusIndicator.className = 'text-xs text-green-400 font-semibold';
-
+                        document.getElementById('status-indicator').textContent = '● Live';
+                        document.getElementById('status-indicator').className = 'text-xs text-green-400 font-semibold';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
-                        attachAlertsListener(); // Attach live alerts listener
+                        attachAlertsListener();
                         document.getElementById('loading-overlay').style.display = 'none';
                     } else {
                         await signInAnonymously(auth);
                     }
                 });
             } catch (error) {
-                /* ... error handling ... */
+                console.error("Firebase Initialization Error:", error);
+                document.getElementById('loading-overlay').innerHTML = `<p class="text-red-400 text-center">Firebase configuration error.<br>Please check deployment plan.</p>`;
             }
         }
         
         // --- REAL-TIME ALERTS ---
         function attachAlertsListener() {
             if (unsubscribeAlerts) unsubscribeAlerts();
+            if (unsubscribeNationalAlerts) unsubscribeNationalAlerts();
+
+            // For now, we listen to all alerts. This would be filtered by region in a future version.
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
             unsubscribeAlerts = onSnapshot(alertsCol, (querySnapshot) => {
                 const alerts = [];
-                querySnapshot.forEach((doc) => {
-                    alerts.push({ id: doc.id, ...doc.data() });
-                });
+                querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
+                
                 if (alerts.length > 0) {
                     renderAlerts(alerts);
                 } else {
-                    // If no live alerts, show a message or fallback to mock
-                    renderAlerts(mockAlerts, true); // Pass a flag to indicate it's fallback
+                    // No local alerts, so let's check for critical national alerts.
+                    attachNationalAlertsListener();
+                }
+            });
+        }
+
+        function attachNationalAlertsListener() {
+            const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
+            const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5)); // 'asc' for severity puts "Red" first
+
+            unsubscribeNationalAlerts = onSnapshot(q, (querySnapshot) => {
+                const nationalAlerts = [];
+                querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
+
+                if (nationalAlerts.length > 0) {
+                    renderAlerts(nationalAlerts, { fallbackType: 'national' });
+                } else {
+                    renderAlerts([], { fallbackType: 'all-clear' });
                 }
             });
         }
         
         // --- UI INITIALIZATION & RENDERING ---
         function initializeStaticUI() {
-            const alertsBtn = document.getElementById('alerts-btn');
-            const groupsBtn = document.getElementById('groups-btn');
-
-            initializeMap(); // Only initialize the map here
-            checkNotificationPermission();
-            lucide.createIcons();
-            
-            alertsBtn.addEventListener('click', () => switchView('alerts'));
-            groupsBtn.addEventListener('click', () => switchView('groups'));
-
             document.getElementById('create-group-btn').addEventListener('click', createGroup);
             document.getElementById('join-group-btn').addEventListener('click', joinGroup);
             document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
+            document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
+            document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
+            initializeMap();
+            checkNotificationPermission();
+            lucide.createIcons();
         }
 
         function initializeMap(){
-            map = L.map('map').setView([14.25, 121.1], 9);
+            map = L.map('map').setView([12.8797, 121.7740], 6); // Centered on the Philippines
             L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-                subdomains: 'abcd',
-                maxZoom: 20
+                attribution: '&copy; OpenStreetMap &copy; CARTO',
+                subdomains: 'abcd', maxZoom: 20
             }).addTo(map);
         }
 
-        function renderAlerts(alerts, isFallback = false){
+        function renderAlerts(alerts, options = { fallbackType: 'none' }){
             const container = document.getElementById('alert-list');
+            const titleEl = document.getElementById('warnings-title');
+            const subtitleEl = document.getElementById('warnings-subtitle');
             container.innerHTML = '';
             
-            // Clear previous markers
-            if (map) {
-                map.eachLayer((layer) => {
-                    if (layer instanceof L.CircleMarker) {
-                        map.removeLayer(layer);
-                    }
-                });
-            }
+            if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
 
             alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
 
-            if (isFallback) {
-                 const fallbackEl = document.createElement('div');
-                 fallbackEl.className = 'text-center text-gray-400 p-8 rounded-lg bg-gray-700/ ৫০';
-                 fallbackEl.innerHTML = `<p>No active alerts from live feed.</p><p class="text-xs mt-2">Showing recent examples.</p>`;
-                 container.appendChild(fallbackEl);
+            // Handle Fallback UI states
+            if (options.fallbackType === 'national') {
+                titleEl.textContent = "Top National Alerts";
+                subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+            } else if (options.fallbackType === 'all-clear') {
+                titleEl.textContent = "All Clear";
+                subtitleEl.textContent = "No critical alerts reported nationwide.";
+                container.innerHTML = `<div class="text-center text-green-400 p-8 rounded-lg bg-gray-700/50 flex flex-col items-center"><i data-lucide="check-circle-2" class="w-12 h-12"></i><p class="mt-4">The system is live and no severe threats are active.</p></div>`;
+                lucide.createIcons();
+                return;
+            } else if (options.fallbackType === 'offline') {
+                titleEl.textContent = "Offline Mode";
+                subtitleEl.textContent = "Showing static examples. Connect to the internet for live data.";
+                 // You could render mock data here if you wish
+            } else { // Default state for live local alerts
+                titleEl.textContent = "Active Warnings";
+                subtitleEl.textContent = "Based on your location: Santa Rosa, Calabarzon";
             }
 
             alerts.forEach(alert => {
@@ -301,7 +302,8 @@
                 const styles = getAlertStyles(severity);
                 const alertEl = document.createElement('div');
                 alertEl.className = `p-4 rounded-lg border-l-4 bg-gray-800 border-${styles.color}`;
-                alertEl.innerHTML = `<div class="flex items-start space-x-3"><div class="w-6 h-6 text-${styles.color} shrink-0"><i data-lucide="${styles.icon}"></i></div><div><h3 class="font-semibold">${title}</h3><p class="text-sm text-gray-300">${details}</p><div class="text-xs text-gray-500 mt-2 flex items-center space-x-4"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                // Enhanced UI to show location clearly
+                alertEl.innerHTML = `<div class="flex items-start space-x-3"><div class="w-6 h-6 text-${styles.color} shrink-0"><i data-lucide="${styles.icon}"></i></div><div><h3 class="font-semibold">${title} <span class="text-gray-400 font-normal">- ${location}</span></h3><p class="text-sm text-gray-300">${details}</p><div class="text-xs text-gray-500 mt-2 flex items-center space-x-4"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
                 container.appendChild(alertEl);
                 
                 if (map) {
@@ -313,14 +315,14 @@
             lucide.createIcons();
         }
 
-        // --- OTHER FUNCTIONS (GROUPS, UTILS, ETC.) ---
-        function switchView(viewName, context = null) { 
+        // --- GROUPS & NOTIFICATION FUNCTIONS (RESTORED) ---
+        function switchView(viewName, context = null) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
             document.getElementById('group-detail-view').classList.add('hidden');
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
-            
+
             Object.values(unsubscribeGroupMembers).forEach(unsub => unsub());
             unsubscribeGroupMembers = {};
 
@@ -333,53 +335,143 @@
             } else if (viewName === 'group-detail' && context) {
                 document.getElementById('group-detail-view').classList.remove('hidden');
                 document.getElementById('groups-btn').classList.add('active');
-                renderGroupDetail(context); 
+                renderGroupDetail(context);
             }
-         }
-        async function createGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
-        async function joinGroup() { if (!userId) { alert("Connecting to service, please try again shortly."); return; } /* ... function body ... */ }
-        async function markAsSafe(groupId) { if (!userId) return; /* ... function body ... */ }
-        function attachUserGroupsListener(uid) { 
+        }
+
+        async function createGroup() {
+            if (!userId) { alert("Connecting to service, please try again shortly."); return; }
+            const groupName = prompt("Enter a name for your new group:", "My Family");
+            if (!groupName) return;
+            const code = `${groupName.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substr(2, 4)}`;
+            
+            try {
+                const groupDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/groups`), {
+                    name: groupName, code: code, members: [userId]
+                });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
+                    groups: arrayUnion(groupDocRef.id)
+                });
+                alert(`Group "${groupName}" created. Share code: ${code}`);
+            } catch (error) { console.error("Error creating group:", error); alert("Could not create group."); }
+        }
+
+        async function joinGroup() {
+            if (!userId) { alert("Connecting to service, please try again shortly."); return; }
+            const code = prompt("Enter the group code to join:");
+            if (!code) return;
+
+            try {
+                const q = query(collection(db, `artifacts/${appId}/public/data/groups`), where("code", "==", code));
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) return alert("Group not found.");
+                
+                const groupDoc = querySnapshot.docs[0];
+                await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
+                    groups: arrayUnion(groupDoc.id)
+                });
+                alert(`Successfully joined "${groupDoc.data().name}".`);
+            } catch (error) { console.error("Error joining group:", error); alert("Could not join group."); }
+        }
+
+        async function markAsSafe() {
+            if (!userId) return;
+            try {
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
+                    status: 'Safe', lastUpdate: serverTimestamp()
+                });
+                alert("Your status has been updated to 'Safe'.");
+            } catch (error) { console.error("Error updating status:", error); alert("Could not update status."); }
+        }
+
+        function attachUserGroupsListener(uid) {
             if (unsubscribeUserGroups) unsubscribeUserGroups();
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             unsubscribeUserGroups = onSnapshot(userRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    renderGroupList(docSnap.data().groups || []);
-                }
+                if (docSnap.exists()) renderGroupList(docSnap.data().groups || []);
             });
-         }
-        async function renderGroupList(groupIds) { /* ... function body ... */ }
-        async function renderGroupDetail(groupId) { /* ... function body ... */ }
-        async function setupUserDocument(uid) { 
+        }
+
+        async function renderGroupList(groupIds) {
+            const container = document.getElementById('group-list');
+            container.innerHTML = '';
+            if (groupIds.length === 0) {
+                container.innerHTML = `<div class="text-center text-gray-400 p-8 rounded-lg bg-gray-700/50"><p>You haven't joined any groups yet.</p></div>`;
+                return;
+            }
+            for (const groupId of groupIds) {
+                const groupSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/groups`, groupId));
+                if (groupSnap.exists()) {
+                    const group = groupSnap.data();
+                    const el = document.createElement('div');
+                    el.className = 'p-4 bg-gray-700 rounded-lg flex justify-between items-center cursor-pointer hover:bg-gray-600';
+                    el.innerHTML = `<div><p class="font-semibold">${group.name}</p><p class="text-xs text-gray-400">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
+                    el.onclick = () => switchView('group-detail', groupId);
+                    container.appendChild(el);
+                }
+            }
+            lucide.createIcons();
+        }
+
+        async function renderGroupDetail(groupId) {
+            const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
+            const groupSnap = await getDoc(groupRef);
+            if (!groupSnap.exists()) return;
+            const group = groupSnap.data();
+
+            const container = document.getElementById('group-detail-content');
+            const memberStatuses = {};
+
+            const updateUI = () => {
+                let memberHtml = Object.values(memberStatuses).sort((a,b) => a.name.localeCompare(b.name)).map(member => {
+                    const isSafe = member.status === 'Safe';
+                    const statusColor = isSafe ? 'text-green-400' : 'text-yellow-400';
+                    const timeAgo = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
+                    return `<div class="flex items-center justify-between p-3 bg-gray-700 rounded-lg"><div class="flex items-center space-x-3"><i data-lucide="${isSafe ? 'check-circle' : 'alert-circle'}" class="${statusColor}"></i><div><p class="font-medium">${member.name} ${member.id === userId ? '(You)' : ''}</p><p class="text-xs text-gray-400">Last update: ${timeAgo}</p></div></div><span class="text-sm font-semibold ${statusColor}">${member.status}</span></div>`;
+                }).join('');
+                container.innerHTML = `<div class="space-y-4"><h3 class="text-xl font-bold">${group.name}</h3><button id="mark-safe-btn" class="w-full flex items-center justify-center space-x-2 p-3 bg-green-600 hover:bg-green-700 rounded-lg font-bold text-lg transition-colors"><i data-lucide="shield-check"></i><span>Mark Myself as Safe</span></button><div class="space-y-2">${memberHtml}</div><div class="text-center p-4 mt-4 border-t border-gray-700"><p class="text-xs text-gray-500">Group Code:</p><p class="font-mono bg-gray-900 p-2 rounded-md mt-1">${group.code}</p></div></div>`;
+                lucide.createIcons();
+                document.getElementById('mark-safe-btn').addEventListener('click', markAsSafe);
+            };
+
+            group.members.forEach(memberId => {
+                const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
+                unsubscribeGroupMembers[memberId] = onSnapshot(memberRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        memberStatuses[memberId] = { id: memberId, ...docSnap.data() };
+                        updateUI();
+                    }
+                });
+            });
+        }
+
+        async function setupUserDocument(uid) {
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             const userSnap = await getDoc(userRef);
             if (!userSnap.exists()) {
-                const name = "Anonymous User";
-                await setDoc(userRef, {
-                    name: name,
-                    status: 'Unknown',
-                    lastUpdate: null,
-                    groups: []
-                });
+                const name = "User " + uid.substring(0, 5); // Default name
+                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
             }
-         }
-        function checkNotificationPermission(){
+        }
+
+        function checkNotificationPermission() {
             if ('Notification' in window && Notification.permission === 'default') {
                 document.getElementById('notification-banner').classList.remove('hidden');
                 document.getElementById('enable-notifications-btn').addEventListener('click', requestNotificationPermission);
             }
-         }
-        async function requestNotificationPermission(){
+        }
+
+        async function requestNotificationPermission() {
             const permission = await Notification.requestPermission();
-            if(permission === 'granted') {
+            if (permission === 'granted') {
                 document.getElementById('notification-banner').classList.add('hidden');
-                showNotification(mockAlerts[0]);
             }
-         }
-        function showNotification(alert){
-            const { title, details } = alert;
-            new Notification(`Bantay Alert: ${title}`, { body: details });
-         }
+        }
+
+        function showNotification(alert) {
+            new Notification(`Bantay Alert: ${alert.title}`, { body: alert.details });
+        }
         
         // --- INITIALIZATION ---
         document.addEventListener('DOMContentLoaded', () => {
