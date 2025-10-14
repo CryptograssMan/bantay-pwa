@@ -5,173 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAFE ka ba? - Calamity Watch</title>
     
-    <!-- Leaflet.js for the interactive map --><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-    <!-- Lucide Icons for clean, modern icons --><script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        /* Embedded Tailwind-like styles for reliability */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
-        :root {
-            --brand-blue: #1d4ed8; /* blue-700 */
-            --brand-yellow: #fde047; /* yellow-300 */
-            --brand-red: #ef4444; /* red-500 */
-            --brand-red-dark: #dc2626; /* red-600 */
-            --brand-green: #22c55e; /* green-500 */
-            --brand-blue-light: #3b82f6; /* blue-500 */
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f1f5f9; /* slate-100 */
-            color: #1e293b; /* slate-800 */
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            overscroll-behavior-y: none;
-            margin: 0;
-        }
-
-        #app {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            max-width: 28rem; /* Equivalent to max-w-lg */
-            margin: auto;
-            background-color: #f8fafc; /* slate-50 */
-            box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Header */
-        header {
-            padding: 1rem;
-            background-color: var(--brand-blue);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 20;
-            flex-shrink: 0;
-            color: white;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            color: var(--brand-yellow);
-        }
-
-        /* Map */
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
+        :root { --brand-blue: #0A2463; --brand-red: #D83121; --brand-yellow: #FFCB00; --brand-green: #22c55e; --background: #F7F7F7; --text-primary: #1E1E1E; --text-secondary: #6B7280; --border-color: #E5E7EB; }
+        body { font-family: 'Rubik', sans-serif; background-color: #E5E7EB; color: var(--text-primary); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overscroll-behavior-y: none; margin: 0; }
+        #app { display: flex; flex-direction: column; height: 100vh; max-width: 28rem; margin: auto; background-color: var(--background); box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); position: relative; overflow: hidden; }
+        header { padding: 0.75rem 1rem; background-color: var(--brand-blue); display: flex; justify-content: space-between; align-items: center; z-index: 20; flex-shrink: 0; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         #map { height: 35vh; z-index: 10; background-color: #e2e8f0; }
-
-        /* Main Content */
-        #main-content {
-            flex-grow: 1;
-            overflow-y: auto;
-            background-color: #f1f5f9; /* slate-100 */
-        }
-        
-        /* Alerts */
-        .alert-item {
-            padding: 1rem;
-            border-radius: 0.5rem;
-            border-left-width: 4px;
-            background-color: white;
-            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-        }
-
-        /* Footer */
-        footer {
-            display: flex;
-            justify-content: space-around;
-            padding: 0.5rem;
-            background-color: var(--brand-blue);
-            flex-shrink: 0;
-            z-index: 20;
-            color: #bfdbfe; /* blue-200 */
-        }
-        .footer-btn {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.25rem;
-            background: none;
-            border: none;
-            color: inherit;
-            cursor: pointer;
-            padding: 0.25rem;
-        }
-        .footer-btn.active { color: var(--brand-yellow); }
-        .footer-btn span { font-size: 0.75rem; font-weight: 500; }
-
-        /* Buttons */
-        .btn {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            color: white;
-            transition: background-color 0.2s;
-            border: none;
-            cursor: pointer;
-        }
-        .btn-red { background-color: var(--brand-red); }
-        .btn-red:hover { background-color: var(--brand-red-dark); }
-        .btn-blue { background-color: var(--brand-blue-light); }
-        .btn-blue:hover { background-color: var(--brand-blue); }
-
-        /* Utility */
+        #main-content { flex-grow: 1; overflow-y: auto; }
+        .alert-item { padding: 1rem; border-radius: 0.75rem; border-left-width: 5px; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); }
+        footer { display: flex; justify-content: space-around; padding: 0.5rem; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
+        .footer-btn { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; background: none; border: none; color: inherit; cursor: pointer; padding: 0.25rem; }
+        .footer-btn.active { color: var(--brand-yellow); font-weight: 600; }
+        .footer-btn span { font-size: 0.75rem; }
+        .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.875rem; border-radius: 0.75rem; font-weight: 600; color: white; transition: transform 0.1s, box-shadow 0.2s; border: none; cursor: pointer; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.15); }
+        .btn:hover { transform: translateY(-2px); }
+        .btn-red { background: var(--brand-red); }
+        .btn-blue { background-color: #1E40AF; }
         .hidden { display: none; }
-
-        /* Loader */
-        #loading-overlay { position: absolute; inset: 0; background-color: rgba(255,255,255,0.8); display:flex; justify-content:center; align-items:center; z-index:50;}
-        .loader {
-            border: 4px solid #e2e8f0; /* slate-200 */
-            border-top: 4px solid var(--brand-yellow);
-            border-radius: 50%;
-            width: 40px; height: 40px;
-            animation: spin 1s linear infinite;
-        }
+        #loading-overlay { position: absolute; inset: 0; background-color: rgba(247,247,247,0.8); display:flex; justify-content:center; align-items:center; z-index:50;}
+        .loader { border: 4px solid #e2e8f0; border-top: 4px solid var(--brand-yellow); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body>
-
     <div id="app">
-        <!-- Loading Overlay --><div id="loading-overlay">
-            <div class="loader"></div>
-        </div>
+        <div id="loading-overlay"><div class="loader"></div></div>
         
-        <!-- Header --><header>
-            <h1>SAFE ka ba?</h1>
+        <header>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <!-- DEFINITIVE FIX: Reverted to the self-contained SVG logo to guarantee it always loads -->
+                <svg height="32" viewBox="0 0 248 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M19.1415 3.37191e-06C29.6111 3.37191e-06 38.1415 8.53041 38.1415 19C38.1415 29.4696 29.6111 38 19.1415 38C8.67186 38 -1.90735e-06 29.4696 -1.90735e-06 19C-1.90735e-06 8.53041 8.67186 3.37191e-06 19.1415 3.37191e-06Z" fill="#F7F7F7"/>
+                    <path d="M38.1415 19H-1.90735e-06V38H19.1415C29.6111 38 38.1415 29.4696 38.1415 19Z" fill="#D83121"/>
+                    <path d="M-1.90735e-06 19H38.1415V0H19.1415C8.67186 0 -1.90735e-06 8.53041 -1.90735e-06 19Z" fill="#0A2463"/>
+                    <path d="M-1.90735e-06 0L19.1415 19L-1.90735e-06 38V0Z" fill="#F7F7F7"/>
+                    <path d="M11.6414 19L13.5204 17.121L15.4 19L13.5204 20.879L11.6414 19ZM18.4001 26L20.2791 24.121L22.1581 26L20.2791 27.879L18.4001 26ZM18.4001 12L20.2791 10.121L22.1581 12L20.2791 13.879L18.4001 12ZM25.1587 19L27.0377 17.121L28.9167 19L27.0377 20.879L25.1587 19Z" fill="#FFCB00" fill-opacity="0.5"/>
+                    <path d="M18.4001 14L19.8143 17.0435H22.8286L20.5072 18.9565L21.3143 22L18.4001 20.25L15.4858 22L16.2929 18.9565L14.0001 17.0435H16.9858L18.4001 14Z" fill="#FFCB00"/>
+                    <text fill="#FFCB00" font-family="Rubik, sans-serif" font-size="24" font-weight="700" x="50" y="28">SAFE ka ba?</text>
+                </svg>
+            </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
-                <i data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db;"></i>
+                <i id="settings-btn" data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db; cursor: pointer;"></i>
             </div>
         </header>
 
-        <!-- Main Content Area --><div id="main-content">
-             <!-- ALERTS VIEW --><div id="alerts-view">
+        <div id="main-content">
+             <div id="alerts-view">
                 <div id="map"></div>
-                <div style="padding: 1rem; border-bottom: 1px solid #e2e8f0; border-top: 1px solid #e2e8f0; background-color: #f8fafc;">
-                    <h2 id="warnings-title" style="font-weight: 600;">Active Warnings</h2>
-                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: #64748b;">Based on your location</p>
+                <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
+                    <h2 id="warnings-title" style="font-weight: 600; font-size: 1.125rem;">Active Warnings</h2>
+                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Based on your location</p>
                 </div>
-                <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                    <!-- Alert items will be dynamically inserted here --></main>
+                <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></main>
             </div>
 
-            <!-- GROUPS VIEW --><div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
-                <h2 style="font-size: 1.125rem; font-weight: 700;">Your Safety Groups</h2>
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                <h2 style="font-size: 1.25rem; font-weight: 700;">Your Safety Groups</h2>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                     <button id="join-group-btn" class="btn btn-red">
                         <i data-lucide="plus-circle"></i>
                         <span>Join a Group</span>
@@ -184,8 +80,8 @@
                 <div id="group-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
             </div>
             
-            <!-- GROUP DETAIL VIEW --><div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
-                <button id="back-to-groups-btn" style="display: flex; align-items: center; gap: 0.5rem; color: #64748b; background: none; border: none; cursor: pointer; font-size: 0.875rem;">
+            <div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+                <button id="back-to-groups-btn" style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;">
                     <i data-lucide="arrow-left"></i>
                     <span>All Groups</span>
                 </button>
@@ -193,7 +89,7 @@
             </div>
         </div>
 
-        <!-- Footer Navigation --><footer>
+        <footer>
             <button id="alerts-btn" class="footer-btn active">
                 <i data-lucide="shield-alert"></i>
                 <span>Alerts</span>
@@ -220,11 +116,7 @@
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
         function getAlertStyles(severity) {
-            const styles = {
-                Red: { color: '#ef4444', icon: 'shield-alert' },
-                Orange: { color: '#f97316', icon: 'siren' },
-                Yellow: { color: '#eab308', icon: 'alert-triangle' }
-            };
+            const styles = { Red: { color: 'var(--brand-red)', icon: 'shield-alert' }, Orange: { color: '#f97316', icon: 'siren' }, Yellow: { color: '#eab308', icon: 'alert-triangle' } };
             return styles[severity] || styles.Yellow;
         }
 
@@ -234,9 +126,7 @@
             const intervals = { 'year': 31536000, 'month': 2592000, 'day': 86400, 'hour': 3600, 'minute': 60 };
             for (let unit in intervals) {
                 let interval = Math.floor(seconds / intervals[unit]);
-                if (interval >= 1) {
-                    return interval + " " + unit + (interval > 1 ? 's' : '') + " ago";
-                }
+                if (interval >= 1) { return interval + " " + unit + (interval > 1 ? 's' : '') + " ago"; }
             }
             return "just now";
         }
@@ -250,18 +140,16 @@
                 renderAlerts([], { fallbackType: 'offline' });
                 return;
             }
-
             try {
                 const firebaseConfig = JSON.parse(atob(firebaseConfigB64).trim());
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
-
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         document.getElementById('status-indicator').textContent = '● Live';
-                        document.getElementById('status-indicator').style.color = '#4ade80';
+                        document.getElementById('status-indicator').style.color = 'var(--brand-green)';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         attachAlertsListener();
@@ -279,39 +167,29 @@
         function attachAlertsListener() {
             if (unsubscribeAlerts) unsubscribeAlerts();
             if (unsubscribeNationalAlerts) unsubscribeNationalAlerts();
-
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
-            unsubscribeAlerts = onSnapshot(alertsCol, (querySnapshot) => {
+            const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
+            unsubscribeAlerts = onSnapshot(q, (querySnapshot) => {
                 const alerts = [];
                 querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
-                
-                if (alerts.length > 0) {
-                    renderAlerts(alerts);
-                } else {
-                    attachNationalAlertsListener();
-                }
-            });
+                if (alerts.length > 0) { renderAlerts(alerts); } else { attachNationalAlertsListener(); }
+            }, (error) => { console.error("Firestore query error:", error); });
         }
 
         function attachNationalAlertsListener() {
             const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
             const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
-
             unsubscribeNationalAlerts = onSnapshot(q, (querySnapshot) => {
                 const nationalAlerts = [];
                 querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
                 renderAlerts(nationalAlerts.length > 0 ? nationalAlerts : [], { fallbackType: nationalAlerts.length > 0 ? 'national' : 'all-clear' });
-            }, (error) => {
-                console.error("Firestore query error:", error);
-                if (error.code === 'failed-precondition') {
-                    // Friendly error for index creation
-                }
-            });
+            }, (error) => { console.error("Firestore query error:", error); });
         }
 
         function initializeStaticUI() {
-            document.getElementById('create-group-btn').addEventListener('click', createGroup);
+            document.getElementById('settings-btn').addEventListener('click', changeUserName);
             document.getElementById('join-group-btn').addEventListener('click', joinGroup);
+            document.getElementById('create-group-btn').addEventListener('click', createGroup);
             document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
@@ -321,8 +199,7 @@
 
         function initializeMap(){
             map = L.map('map').setView([12.8797, 121.7740], 6);
-            // Switched to CARTO's 'light_nolabels' for light theme with baby powder blue oceans
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
                 subdomains: 'abcd', minZoom: 0, maxZoom: 18
             }).addTo(map);
@@ -342,13 +219,13 @@
             } else if (options.fallbackType === 'all-clear') {
                 titleEl.textContent = "All Clear";
                 subtitleEl.textContent = "No critical alerts reported nationwide.";
-                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.5rem; background-color: white; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: #374151;">The system is live and no severe threats are active.</p></div>`;
+                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
                 lucide.createIcons();
                 return;
             } else if (options.fallbackType === 'offline') {
                 titleEl.textContent = "Offline Mode";
                 subtitleEl.textContent = "Connect to the internet for live data.";
-                 container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 2rem; border-radius: 0.5rem; background-color: white; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);"><p>Cannot connect to live services.</p></div>`;
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>Cannot connect to live services.</p></div>`;
             } else {
                 titleEl.textContent = "Active Warnings";
                 subtitleEl.textContent = "Based on your location";
@@ -362,10 +239,10 @@
                 const alertEl = document.createElement('div');
                 alertEl.className = 'alert-item';
                 alertEl.style.borderColor = styles.color;
-                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: #0f172a;">${title} <span style="color: #64748b; font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
                 container.appendChild(alertEl);
                 
-                if (map) {
+                if (map && lat && lon) {
                     const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
                     marker.bindPopup(`<b>${title}</b><br>${location}`);
                 }
@@ -379,13 +256,11 @@
             const groupDetailView = document.getElementById('group-detail-view');
             const alertsBtn = document.getElementById('alerts-btn');
             const groupsBtn = document.getElementById('groups-btn');
-
             alertsView.classList.add('hidden');
             groupsView.classList.add('hidden');
             groupDetailView.classList.add('hidden');
             alertsBtn.classList.remove('active');
             groupsBtn.classList.remove('active');
-
             if (viewName === 'alerts') {
                 alertsView.classList.remove('hidden');
                 alertsBtn.classList.add('active');
@@ -403,14 +278,9 @@
             const groupName = prompt("Enter a name for your new group:", "My Family");
             if (!groupName) return;
             const code = `${groupName.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substr(2, 4)}`;
-            
             try {
-                const groupDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/groups`), {
-                    name: groupName, code: code, members: [userId]
-                });
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
-                    groups: arrayUnion(groupDocRef.id)
-                });
+                const groupDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/groups`), { name: groupName, code: code, members: [userId] });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDocRef.id) });
                 alert(`Group "${groupName}" created. Share code: ${code}`);
             } catch (error) { console.error("Error creating group:", error); alert("Could not create group."); }
         }
@@ -423,12 +293,9 @@
                 const q = query(collection(db, `artifacts/${appId}/public/data/groups`), where("code", "==", code));
                 const querySnapshot = await getDocs(q);
                 if (querySnapshot.empty) return alert("Group not found.");
-                
                 const groupDoc = querySnapshot.docs[0];
                 await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
-                    groups: arrayUnion(groupDoc.id)
-                });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDoc.id) });
                 alert(`Successfully joined "${groupDoc.data().name}".`);
             } catch (error) { console.error("Error joining group:", error); alert("Could not join group."); }
         }
@@ -454,7 +321,7 @@
             const container = document.getElementById('group-list');
             container.innerHTML = '';
             if (groupIds.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: #64748b; padding: 2rem; border-radius: 0.5rem; background-color: #f1f5f9;"><p>You haven't joined any groups yet.</p></div>`;
+                container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>You haven't joined any groups yet.</p></div>`;
                 return;
             }
             for (const groupId of groupIds) {
@@ -462,12 +329,9 @@
                 if (groupSnap.exists()) {
                     const group = groupSnap.data();
                     const el = document.createElement('div');
-                    el.style = "padding: 1rem; background-color: white; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1);";
-                    el.innerHTML = `<div><p style="font-weight: 600;">${group.name}</p><p style="font-size: 0.75rem; color: #64748b;">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
-                    el.onclick = () => {
-                        switchView('group-detail');
-                        renderGroupDetail(groupId);
-                    }
+                    el.style = "padding: 1rem; background-color: white; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);";
+                    el.innerHTML = `<div><p style="font-weight: 600;">${group.name}</p><p style="font-size: 0.75rem; color: var(--text-secondary);">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
+                    el.onclick = () => { switchView('group-detail'); renderGroupDetail(groupId); }
                     container.appendChild(el);
                 }
             }
@@ -479,22 +343,19 @@
             const groupSnap = await getDoc(groupRef);
             if (!groupSnap.exists()) return;
             const group = groupSnap.data();
-
             const container = document.getElementById('group-detail-content');
             const memberStatuses = {};
-
             const updateUI = () => {
                 let memberHtml = Object.values(memberStatuses).sort((a,b) => a.name.localeCompare(b.name)).map(member => {
                     const isSafe = member.status === 'Safe';
                     const statusColor = isSafe ? 'var(--brand-green)' : 'var(--brand-yellow)';
                     const timeAgo = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
-                    return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.05); border-radius: 0.5rem;"><div style="display: flex; align-items: center; gap: 0.75rem;"><i data-lucide="${isSafe ? 'check-circle' : 'alert-circle'}" style="color: ${statusColor};"></i><div><p style="font-weight: 500;">${member.name} ${member.id === userId ? '(You)' : ''}</p><p style="font-size: 0.75rem; color: #64748b;">Last update: ${timeAgo}</p></div></div><span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${member.status || 'Unknown'}</span></div>`;
+                    return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;"><div style="display: flex; align-items: center; gap: 0.75rem;"><i data-lucide="${isSafe ? 'check-circle' : 'alert-circle'}" style="color: ${statusColor};"></i><div><p style="font-weight: 500;">${member.name} ${member.id === userId ? '(You)' : ''}</p><p style="font-size: 0.75rem; color: var(--text-secondary);">Last update: ${timeAgo}</p></div></div><span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${member.status || 'Unknown'}</span></div>`;
                 }).join('');
-                container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 1rem;"><h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3><button id="mark-safe-btn" class="btn" style="background-color: var(--brand-green);"><i data-lucide="shield-check"></i><span>Mark Myself as Safe</span></button><div style="display: flex; flex-direction: column; gap: 0.5rem;">${memberHtml}</div><div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid #e2e8f0;"><p style="font-size: 0.75rem; color: #94a3b8;">Group Code:</p><p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p></div></div>`;
+                container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 1rem;"><h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3><button id="mark-safe-btn" class="btn" style="background-color: var(--brand-green);"><i data-lucide="shield-check"></i><span>Mark Myself as Safe</span></button><div style="display: flex; flex-direction: column; gap: 0.5rem;">${memberHtml}</div><div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color);"><p style="font-size: 0.75rem; color: var(--text-secondary);">Group Code:</p><p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p></div></div>`;
                 lucide.createIcons();
                 document.getElementById('mark-safe-btn').addEventListener('click', markAsSafe);
             };
-
             group.members.forEach(memberId => {
                 const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
                 unsubscribeGroupMembers[memberId] = onSnapshot(memberRef, (docSnap) => {
@@ -509,13 +370,26 @@
         async function markAsSafe() {
             if (!userId) return;
             try {
-                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), {
-                    status: 'Safe', lastUpdate: serverTimestamp()
-                });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { status: 'Safe', lastUpdate: serverTimestamp() });
                 alert("Your status has been updated to 'Safe'.");
             } catch (error) { console.error("Error updating status:", error); alert("Could not update status."); }
         }
 
+        async function changeUserName() {
+            if (!userId) return; 
+            try {
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+                const userSnap = await getDoc(userRef);
+                const currentName = userSnap.exists() ? userSnap.data().name : '';
+                const newName = prompt("Enter your new name:", currentName);
+                if (!newName || newName.trim() === '') { return; }
+                await updateDoc(userRef, { name: newName.trim() });
+                alert("Your name has been updated successfully.");
+            } catch (error) {
+                console.error("Error updating user name:", error);
+                alert("Could not update your name at this time.");
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeStaticUI();
