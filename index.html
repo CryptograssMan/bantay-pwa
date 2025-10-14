@@ -38,16 +38,8 @@
         
         <header>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <!-- NEW: Recreated SVG logo based on user-provided image -->
-                <svg height="32" viewBox="0 0 248 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M19.1415 3.37191e-06C29.6111 3.37191e-06 38.1415 8.53041 38.1415 19C38.1415 29.4696 29.6111 38 19.1415 38C8.67186 38 -1.90735e-06 29.4696 -1.90735e-06 19C-1.90735e-06 8.53041 8.67186 3.37191e-06 19.1415 3.37191e-06Z" fill="#F7F7F7"/>
-                    <path d="M38.1415 19H-1.90735e-06V38H19.1415C29.6111 38 38.1415 29.4696 38.1415 19Z" fill="#D83121"/>
-                    <path d="M-1.90735e-06 19H38.1415V0H19.1415C8.67186 0 -1.90735e-06 8.53041 -1.90735e-06 19Z" fill="#0A2463"/>
-                    <path d="M-1.90735e-06 0L19.1415 19L-1.90735e-06 38V0Z" fill="#F7F7F7"/>
-                    <path d="M11.6414 19L13.5204 17.121L15.4 19L13.5204 20.879L11.6414 19ZM18.4001 26L20.2791 24.121L22.1581 26L20.2791 27.879L18.4001 26ZM18.4001 12L20.2791 10.121L22.1581 12L20.2791 13.879L18.4001 12ZM25.1587 19L27.0377 17.121L28.9167 19L27.0377 20.879L25.1587 19Z" fill="#FFCB00" fill-opacity="0.5"/>
-                    <path d="M18.4001 14L19.8143 17.0435H22.8286L20.5072 18.9565L21.3143 22L18.4001 20.25L15.4858 22L16.2929 18.9565L14.0001 17.0435H16.9858L18.4001 14Z" fill="#FFCB00"/>
-                    <text fill="#FFCB00" font-family="Rubik, sans-serif" font-size="24" font-weight="700" x="50" y="28">SAFE ka ba?</text>
-                </svg>
+                <!-- UPDATED: Using IMG tag to load the official SVG logo from Firebase Storage -->
+                <img src="https://firebasestorage.googleapis.com/v0/b/bantay-pwa.appspot.com/o/bantay-logo.svg?alt=media" alt="SAFE ka ba? Logo" style="height: 32px; width: auto;">
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
