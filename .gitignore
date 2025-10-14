@@ -1,0 +1,7 @@
+node_modules/
+.firebaserc
+firebase.json
+functions/
+*.log
+*.swp
+*.save
