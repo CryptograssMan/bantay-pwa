@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAFE ka ba? - Calamity Watch</title>
     
-    <!-- Leaflet.js for the interactive map --><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <!-- Lucide Icons for clean, modern icons --><script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
         /* Embedded Tailwind-like styles for reliability */
@@ -63,6 +63,7 @@
             font-size: 1.25rem;
             font-weight: 700;
             color: var(--brand-yellow);
+            margin: 0;
         }
 
         /* Map */
@@ -128,38 +129,38 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
     </style>
 </head>
 <body>
 
     <div id="app">
-        <!-- Loading Overlay --><div id="loading-overlay">
+        <div id="loading-overlay">
             <div class="loader"></div>
         </div>
         
-        <!-- Header --><header>
+        <header>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <!-- NEW Modern Shield Logo --><svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 36C27.9411 36 36 27.9411 36 18C36 8.05887 27.9411 0 18 0C8.05887 0 0 8.05887 0 18C0 27.9411 8.05887 36 18 36Z" fill="#F7F7F7"/><path d="M36 18H0V36H18C27.9411 36 36 27.9411 36 18Z" fill="#D83121"/><path d="M0 18H36V0H18C8.05887 0 0 8.05887 0 18Z" fill="#0A2463"/><path d="M0 0L18 18L0 36V0Z" fill="#F7F7F7"/><path d="M11 18L13 16L15 18L13 20L11 18ZM18 25L20 23L22 25L20 27L18 25ZM18 11L20 9L22 11L20 13L18 11ZM25 18L27 16L29 18L27 20L25 18Z" fill="#FFCB00" fill-opacity="0.5"/><path d="M18 13L19.5 16H22L20 18L21 21L18 19.5L15 21L16 18L14 16H16.5L18 13Z" fill="#FFCB00"/></svg>
+                <img src="assets/images/bantay-logo.jpg" alt="SAFE ka ba? Logo" style="height: 36px; width: auto; flex-shrink: 0;">
+                <h1>SAFE ka ba?</h1>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
-                <i data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db;"></i>
+                <i id="settings-btn" data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db; cursor: pointer;"></i>
             </div>
         </header>
 
-        <!-- Main Content Area --><div id="main-content">
-             <!-- ALERTS VIEW --><div id="alerts-view">
+        <div id="main-content">
+             <div id="alerts-view">
                 <div id="map"></div>
                 <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
                     <h2 id="warnings-title" style="font-weight: 600; font-size: 1.125rem;">Active Warnings</h2>
                     <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Based on your location</p>
                 </div>
                 <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;">
-                    <!-- Alert items will be dynamically inserted here --></main>
+                    </main>
             </div>
 
-            <!-- GROUPS VIEW --><div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
                 <h2 style="font-size: 1.25rem; font-weight: 700;">Your Safety Groups</h2>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                     <button id="join-group-btn" class="btn btn-red">
@@ -174,7 +175,7 @@
                 <div id="group-list" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
             </div>
             
-            <!-- GROUP DETAIL VIEW --><div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;">
                 <button id="back-to-groups-btn" style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;">
                     <i data-lucide="arrow-left"></i>
                     <span>All Groups</span>
@@ -183,7 +184,7 @@
             </div>
         </div>
 
-        <!-- Footer Navigation --><footer>
+        <footer>
             <button id="alerts-btn" class="footer-btn active">
                 <i data-lucide="shield-alert"></i>
                 <span>Alerts</span>
@@ -219,7 +220,6 @@
         }
 
         function formatTimeAgo(date) {
-            // ... (no changes to this function)
             const seconds = Math.floor((new Date() - date) / 1000);
             if (seconds < 60) return "just now";
             const intervals = { 'year': 31536000, 'month': 2592000, 'day': 86400, 'hour': 3600, 'minute': 60 };
@@ -231,7 +231,6 @@
         }
 
         async function initializeFirebase() {
-            // ... (no changes to this function)
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
                 console.warn("Firebase config not found. Running in offline/demo mode.");
                 document.getElementById('loading-overlay').style.display = 'none';
@@ -265,19 +264,18 @@
         }
 
         function attachAlertsListener() {
-            // ... (no changes to this function)
             if (unsubscribeAlerts) unsubscribeAlerts();
             if (unsubscribeNationalAlerts) unsubscribeNationalAlerts();
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
-            unsubscribeAlerts = onSnapshot(alertsCol, (querySnapshot) => {
+            const q = query(alertsCol, orderBy('time', 'desc'), limit(10)); // Query for recent alerts
+            unsubscribeAlerts = onSnapshot(q, (querySnapshot) => {
                 const alerts = [];
                 querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
                 if (alerts.length > 0) { renderAlerts(alerts); } else { attachNationalAlertsListener(); }
-            });
+            }, (error) => { console.error("Firestore query error:", error); });
         }
 
         function attachNationalAlertsListener() {
-            // ... (no changes to this function)
             const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
             const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
             unsubscribeNationalAlerts = onSnapshot(q, (querySnapshot) => {
@@ -288,11 +286,12 @@
         }
 
         function initializeStaticUI() {
-            document.getElementById('create-group-btn').addEventListener('click', createGroup);
             document.getElementById('join-group-btn').addEventListener('click', joinGroup);
+            document.getElementById('create-group-btn').addEventListener('click', createGroup);
             document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
+            document.getElementById('settings-btn').addEventListener('click', changeUserName);
             initializeMap();
             lucide.createIcons();
         }
@@ -306,7 +305,6 @@
         }
 
         function renderAlerts(alerts, options = { fallbackType: 'none' }){
-            // ... (no changes to this function's logic)
             const container = document.getElementById('alert-list');
             const titleEl = document.getElementById('warnings-title');
             const subtitleEl = document.getElementById('warnings-subtitle');
@@ -343,7 +341,7 @@
                 alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
                 container.appendChild(alertEl);
                 
-                if (map) {
+                if (map && lat && lon) {
                     const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
                     marker.bindPopup(`<b>${title}</b><br>${location}`);
                 }
@@ -352,7 +350,6 @@
         }
 
         function switchView(viewName) {
-            // ... (no changes to this function)
             const alertsView = document.getElementById('alerts-view');
             const groupsView = document.getElementById('groups-view');
             const groupDetailView = document.getElementById('group-detail-view');
@@ -376,7 +373,6 @@
         }
 
         async function createGroup() {
-            // ... (no changes to this function)
             if (!userId) return;
             const groupName = prompt("Enter a name for your new group:", "My Family");
             if (!groupName) return;
@@ -389,7 +385,6 @@
         }
 
         async function joinGroup() {
-            // ... (no changes to this function)
             if (!userId) return;
             const code = prompt("Enter the group code to join:");
             if (!code) return;
@@ -405,7 +400,6 @@
         }
         
         async function setupUserDocument(uid) {
-            // ... (no changes to this function)
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             const userSnap = await getDoc(userRef);
             if (!userSnap.exists()) {
@@ -415,7 +409,6 @@
         }
         
         function attachUserGroupsListener(uid) {
-            // ... (no changes to this function)
             if (unsubscribeUserGroups) unsubscribeUserGroups();
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
             unsubscribeUserGroups = onSnapshot(userRef, (docSnap) => {
@@ -445,7 +438,6 @@
         }
 
         async function renderGroupDetail(groupId) {
-             // ... (no changes to this function's logic)
              const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
             const groupSnap = await getDoc(groupRef);
             if (!groupSnap.exists()) return;
@@ -481,7 +473,29 @@
                 alert("Your status has been updated to 'Safe'.");
             } catch (error) { console.error("Error updating status:", error); alert("Could not update status."); }
         }
+        
+        async function changeUserName() {
+            if (!userId) return; 
 
+            try {
+                const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+                const userSnap = await getDoc(userRef);
+                const currentName = userSnap.exists() ? userSnap.data().name : '';
+
+                const newName = prompt("Enter your new name:", currentName);
+
+                if (!newName || newName.trim() === '') {
+                    return;
+                }
+
+                await updateDoc(userRef, { name: newName.trim() });
+                alert("Your name has been updated successfully.");
+
+            } catch (error) {
+                console.error("Error updating user name:", error);
+                alert("Could not update your name at this time.");
+            }
+        }
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeStaticUI();
@@ -490,4 +504,3 @@
     </script>
 </body>
 </html>
-
