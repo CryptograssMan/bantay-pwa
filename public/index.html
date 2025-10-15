@@ -157,11 +157,13 @@
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         
-                        // ** FIX: Load national alerts first, then ask for location to prevent getting stuck **
                         attachNationalAlertsListener(); 
-                        checkAndRequestLocationPermission(); 
-
                         document.getElementById('loading-overlay').style.display = 'none';
+
+                        setTimeout(() => {
+                            checkAndRequestLocationPermission(); 
+                        }, 1500);
+
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -257,7 +259,6 @@
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     document.getElementById('location-denied-banner').classList.add('hidden');
-                    // This is where we upgrade from national to local alerts.
                     attachAlertsListener(); 
                 },
                 () => { handleLocationDenied(); }
@@ -289,7 +290,7 @@
         }
 
         async function createGroup() {
-             const groupNameInput = prompt("Enter a name for your new group:", "My Family");
+            const groupNameInput = prompt("Enter a name for your new group:", "My Family");
             if (!groupNameInput || !groupNameInput.trim()) return;
             const groupName = groupNameInput.trim();
             const code = `${groupName.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substr(2, 4)}`;
@@ -328,7 +329,7 @@
         }
 
         async function joinGroup() {
-             const codeInput = prompt("Enter the group code to join:");
+            const codeInput = prompt("Enter the group code to join:");
             if (!codeInput || !codeInput.trim()) return;
             const code = codeInput.trim();
             try {
@@ -339,7 +340,7 @@
                 await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDoc.id) });
                 alert(`Successfully joined "${groupDoc.data().name}".`);
-            } catch (error) { console.error("Error joining group:", error); alert("Could not join group."); }
+            } catch (error) { console.error("Error joining group:", error); }
         }
 
         function confirmLeaveGroup(groupId, groupName) {
@@ -372,14 +373,15 @@
 
         function attachAlertsListener() {
             if (listeners.alerts) listeners.alerts();
-            if (listeners.nationalAlerts) listeners.nationalAlerts();
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
             const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
             listeners.alerts = onSnapshot(q, (querySnapshot) => {
                 const alerts = [];
                 querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
-                renderAlerts(alerts.length > 0 ? alerts : [], { fallbackType: alerts.length > 0 ? 'local' : 'all-clear-local' });
-            }, (error) => { console.error("Firestore query error:", error); });
+                if(alerts.length > 0) {
+                    renderAlerts(alerts, { fallbackType: 'local' });
+                }
+            }, (error) => { console.error("Firestore (local alerts) query error:", error); });
         }
 
         function attachNationalAlertsListener() {
@@ -389,8 +391,8 @@
             listeners.nationalAlerts = onSnapshot(q, (querySnapshot) => {
                 const nationalAlerts = [];
                 querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
-                renderAlerts(nationalAlerts.length > 0 ? nationalAlerts : [], { fallbackType: nationalAlerts.length > 0 ? 'national' : 'all-clear' });
-            }, (error) => { console.error("Firestore query error:", error); });
+                renderAlerts(nationalAlerts, { fallbackType: 'national' });
+            }, (error) => { console.error("Firestore (national alerts) query error:", error); });
         }
 
         function renderAlerts(alerts, options = { fallbackType: 'none' }){
@@ -438,13 +440,174 @@
             lucide.createIcons();
         }
 
-        async function renderGroupList(groupIds) { /* ... as before ... */ }
-        async function renderGroupDetail(groupId) { /* ... as before ... */ }
-        function clearAllListeners(type) { /* ... as before ... */ }
-        function initializeMap(){ /* ... as before ... */ }
-        function getAlertStyles(severity){ /* ... as before ... */ }
-        function formatTimeAgo(date){ /* ... as before ... */ }
-        async function setupUserDocument(uid){ /* ... as before ... */ }
+        async function renderGroupList(groupIds) {
+            const container = document.getElementById('groups-view');
+            let content = `
+                <h2 style="font-size: 1.25rem; font-weight: 700;">Your Safety Groups</h2>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <button id="join-group-btn" class="btn btn-red"><i data-lucide="plus-circle"></i><span>Join a Group</span></button>
+                    <button id="create-group-btn" class="btn btn-blue"><i data-lucide="users"></i><span>Create a Group</span></button>
+                </div>
+                <div id="group-list-items" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>`;
+            container.innerHTML = content;
+
+            const listContainer = document.getElementById('group-list-items');
+            if (groupIds.length === 0) {
+                listContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>You haven't joined any groups yet.</p></div>`;
+            } else {
+                 for (const groupId of groupIds) {
+                    const groupSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/groups`, groupId));
+                    if (groupSnap.exists()) {
+                        const group = groupSnap.data();
+                        const el = document.createElement('div');
+                        el.style = "padding: 1rem; background-color: white; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);";
+                        el.innerHTML = `<div><p style="font-weight: 600;">${group.name}</p><p style="font-size: 0.75rem; color: var(--text-secondary);">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
+                        el.onclick = () => { switchView('group-detail'); renderGroupDetail(groupId); }
+                        listContainer.appendChild(el);
+                    }
+                }
+            }
+            document.getElementById('join-group-btn').addEventListener('click', joinGroup);
+            document.getElementById('create-group-btn').addEventListener('click', createGroup);
+            lucide.createIcons();
+        }
+
+        async function renderGroupDetail(groupId) {
+            const container = document.getElementById('group-detail-view');
+            container.innerHTML = '';
+            
+            const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
+            const groupSnap = await getDoc(groupRef);
+            if (!groupSnap.exists()) return;
+
+            const group = { id: groupSnap.id, ...groupSnap.data() };
+            const memberStatuses = {};
+
+            const updateUI = () => {
+                let memberHtml = Object.values(memberStatuses).sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(member => {
+                    const isCurrentUser = member.id === userId;
+                    let status = member.status || 'Unknown';
+                    let statusColor = 'var(--text-secondary)';
+                    let statusIcon = 'help-circle';
+                    let timeText = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
+                    
+                    if (member.status === 'Safe' && member.statusExpiresAt && member.statusExpiresAt.toDate() < new Date()) {
+                        status = 'Unknown';
+                        timeText = "Status expired";
+                    }
+
+                    if (status === 'Safe') {
+                        statusColor = 'var(--brand-green)';
+                        statusIcon = 'check-circle';
+                        timeText = formatTimeRemaining(member.statusExpiresAt);
+                    } else if (status === 'Needs Help') {
+                        statusColor = 'var(--brand-red)';
+                        statusIcon = 'alert-triangle';
+                    }
+
+                    return `
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                                <i data-lucide="${statusIcon}" style="color: ${statusColor};"></i>
+                                <div>
+                                    <p style="font-weight: 500;">${member.name} ${isCurrentUser ? '(You)' : ''}</p>
+                                    <p style="font-size: 0.75rem; color: var(--text-secondary);" id="timer-${member.id}">${timeText}</p>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${status}</span>
+                        </div>`;
+                }).join('');
+
+                container.innerHTML = `
+                    <button id="back-to-groups-btn" style="align-self: flex-start; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;"><i data-lucide="arrow-left"></i><span>All Groups</span></button>
+                    <h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="safe-btn" class="btn btn-green"><i data-lucide="shield-check"></i><span>I AM SAFE</span></button>
+                        <button id="help-btn" class="btn btn-red"><i data-lucide="alert-circle"></i><span>I NEED HELP</span></button>
+                    </div>
+                    <div id="member-list" style="display: flex; flex-direction: column; gap: 0.5rem;">${memberHtml}</div>
+                    <div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color);">
+                        <p style="font-size: 0.75rem; color: var(--text-secondary);">Group Code:</p>
+                        <p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p>
+                        <button id="leave-group-btn" style="background:none; border:none; color:var(--brand-red); text-decoration: underline; cursor:pointer; margin-top: 1rem;">Leave Group</button>
+                    </div>`;
+                
+                document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
+                document.getElementById('safe-btn').addEventListener('click', () => updateSafetyStatus('Safe'));
+                document.getElementById('help-btn').addEventListener('click', () => updateSafetyStatus('Needs Help'));
+                document.getElementById('leave-group-btn').addEventListener('click', () => confirmLeaveGroup(group.id, group.name));
+                
+                lucide.createIcons();
+                
+                 Object.values(memberStatuses).forEach(member => {
+                    if (member.status === 'Safe' && member.statusExpiresAt) {
+                        if (groupMemberTimers[member.id]) clearInterval(groupMemberTimers[member.id]);
+                        groupMemberTimers[member.id] = setInterval(() => {
+                            const timerEl = document.getElementById(`timer-${member.id}`);
+                            if (timerEl) {
+                                timerEl.textContent = formatTimeRemaining(member.statusExpiresAt);
+                                if (timerEl.textContent === "Expired") {
+                                    clearInterval(groupMemberTimers[member.id]);
+                                    // Optionally re-render to show expired status text
+                                }
+                            } else {
+                                clearInterval(groupMemberTimers[member.id]);
+                            }
+                        }, 60000);
+                    }
+                 });
+            };
+
+            clearAllListeners('groupMembers');
+            group.members.forEach(memberId => {
+                const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
+                listeners.groupMembers[memberId] = onSnapshot(memberRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        memberStatuses[memberId] = { id: memberId, ...docSnap.data() };
+                        updateUI();
+                    }
+                });
+            });
+        }
+
+        function clearAllListeners(type) {
+            if (type === 'groupMembers') {
+                Object.values(listeners.groupMembers).forEach(unsub => unsub());
+                listeners.groupMembers = {};
+                Object.values(groupMemberTimers).forEach(timer => clearInterval(timer));
+                groupMemberTimers = {};
+            }
+        }
+
+        function initializeMap(){
+            map = L.map('map').setView([12.8797, 121.7740], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd', minZoom: 0, maxZoom: 18
+            }).addTo(map);
+        }
+        function getAlertStyles(severity){
+            const styles = { Red: { color: 'var(--brand-red)', icon: 'shield-alert' }, Orange: { color: '#f97316', icon: 'siren' }, Yellow: { color: '#eab308', icon: 'alert-triangle' } };
+            return styles[severity] || styles.Yellow;
+        }
+        function formatTimeAgo(date){
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return "just now";
+            const intervals = { 'year': 31536000, 'month': 2592000, 'day': 86400, 'hour': 3600, 'minute': 60 };
+            for (let unit in intervals) {
+                let interval = Math.floor(seconds / intervals[unit]);
+                if (interval >= 1) { return interval + " " + unit + (interval > 1 ? 's' : '') + " ago"; }
+            }
+            return "just now";
+        }
+        async function setupUserDocument(uid){
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+                const name = "User " + uid.substring(0, 5);
+                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
+            }
+        }
 
     </script>
 </body>
