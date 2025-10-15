@@ -128,6 +128,15 @@
                             document.getElementById('location-banner').classList.add('hidden');
                         }
 
+                        // Handle group invites from URL
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const groupCodeToJoin = urlParams.get('join-group');
+                        if (groupCodeToJoin) {
+                            await joinGroup(groupCodeToJoin);
+                            // Clean the URL
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        }
+
                         document.getElementById('loading-overlay').style.display = 'none';
                     } else {
                         await signInAnonymously(auth);
@@ -172,7 +181,6 @@
                     }
                     subtitle.style.color = 'var(--brand-red)';
 
-                    // ** DEFINITIVE FIX: Enforce fallback to national alerts on any error. **
                     attachAlertsListener('national');
                 },
                 options
@@ -330,20 +338,22 @@
         }
 
         function shareGroupInvite(code) {
+            const inviteUrl = `https://app.safekaba.com/?join-group=${code}`;
             const shareData = {
                 title: 'SAFE ka ba? Group Invite',
-                text: `Join my safety group on SAFE ka ba? Use this code: ${code}`,
+                text: `Join my safety group on SAFE ka ba?`,
+                url: inviteUrl,
             };
             if (navigator.share) {
                 navigator.share(shareData);
             } else {
-                navigator.clipboard.writeText(shareData.text);
-                alert("Invite text copied to clipboard!");
+                navigator.clipboard.writeText(inviteUrl);
+                alert("Invite link copied to clipboard!");
             }
         }
 
-        async function joinGroup() {
-            const codeInput = prompt("Enter the group code to join:");
+        async function joinGroup(prefilledCode = null) {
+            const codeInput = prefilledCode || prompt("Enter the group code to join:");
             if (!codeInput || !codeInput.trim()) return;
             const code = codeInput.trim();
             try {
@@ -354,6 +364,7 @@
                 await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDoc.id) });
                 alert(`Successfully joined "${groupDoc.data().name}".`);
+                switchView('groups');
             } catch (error) { console.error("Error joining group:", error); }
         }
 
@@ -422,7 +433,7 @@
                     }
                 }
             }
-            document.getElementById('join-group-btn').addEventListener('click', joinGroup);
+            document.getElementById('join-group-btn').addEventListener('click', () => joinGroup());
             document.getElementById('create-group-btn').addEventListener('click', createGroup);
             lucide.createIcons();
         }
