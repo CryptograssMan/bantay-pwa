@@ -47,10 +47,10 @@
         <header>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <img src="/assets/images/bantay-logo.svg" alt="SAFE ka ba? Logo" style="height: 40px; width: auto; flex-shrink: 0;">
+                <span style="font-weight: 700; color: var(--brand-yellow); text-transform: uppercase;">SAFE KA BA?</span>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
-                <i id="settings-btn" data-lucide="settings" style="width: 1.5rem; height: 1.5rem; color: #d1d5db; cursor: pointer;"></i>
             </div>
         </header>
 
@@ -84,25 +84,6 @@
                 <button id="enable-location-modal-btn" class="btn btn-blue">Enable Location</button>
             </div>
         </div>
-        <div id="settings-modal" class="modal-overlay modal-slide-up hidden">
-            <div class="modal-content">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="font-size: 1.25rem; font-weight: 700;">Settings</h3>
-                    <button id="close-settings-btn" style="background:none; border:none; cursor:pointer;"><i data-lucide="x"></i></button>
-                </div>
-                <div>
-                    <label for="username-input" style="font-size: 0.875rem; font-weight: 500;">Your Name</label>
-                    <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
-                        <input type="text" id="username-input" class="input-field" placeholder="Enter your name">
-                        <button id="save-username-btn" class="btn btn-blue" style="width: auto; padding: 0.75rem 1rem;">Save</button>
-                    </div>
-                </div>
-                <div>
-                    <p style="font-size: 0.875rem; font-weight: 500;">Your User ID</p>
-                    <p id="user-id-display" style="font-family: monospace; word-break: break-all; background-color: #f1f5f9; padding: 0.5rem; border-radius: 0.5rem; font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;"></p>
-                </div>
-            </div>
-        </div>
         <div id="share-group-modal" class="modal-overlay hidden"></div>
         <div id="confirm-leave-modal" class="modal-overlay hidden"></div>
     </div>
@@ -128,16 +109,13 @@
             initializeMap();
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
-            document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
-            document.getElementById('close-settings-btn').addEventListener('click', () => toggleModal('settings-modal', false));
-            document.getElementById('save-username-btn').addEventListener('click', saveUserName);
             document.getElementById('enable-location-modal-btn').addEventListener('click', requestLocationPermission);
             document.getElementById('enable-location-banner-btn').addEventListener('click', requestLocationPermission);
         }
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                // ... (offline handling)
+                // ... (offline handling as before)
                 return;
             }
             try {
@@ -153,11 +131,9 @@
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         
-                        // ** DEFINITIVE FIX: Fetch national alerts immediately for instant content **
                         await fetchAndRenderNationalAlerts();
                         document.getElementById('loading-overlay').style.display = 'none';
 
-                        // ** Then, gracefully ask for location permission after the app is loaded **
                         setTimeout(() => {
                             checkAndRequestLocationPermission(); 
                         }, 1500);
@@ -202,29 +178,7 @@
                 modal.classList.add('hidden');
             }
         }
-
-        async function openSettingsModal() {
-            if (!userId) return;
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                document.getElementById('username-input').value = userSnap.data().name || '';
-                document.getElementById('user-id-display').textContent = userId;
-                toggleModal('settings-modal', true);
-            }
-        }
-
-        async function saveUserName() {
-            if (!userId) return;
-            const newName = document.getElementById('username-input').value.trim();
-            if (!newName) return;
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
-            try {
-                await updateDoc(userRef, { name: newName });
-                toggleModal('settings-modal', false);
-            } catch (error) { console.error("Error updating name:", error); }
-        }
-
+        
         async function checkAndRequestLocationPermission() {
             if (!navigator.geolocation) {
                 document.getElementById('warnings-subtitle').textContent = 'Location not supported.';
@@ -257,7 +211,6 @@
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     document.getElementById('location-denied-banner').classList.add('hidden');
-                    // ** UPGRADE to live, local alerts **
                     attachAlertsListener(); 
                 },
                 () => { handleLocationDenied(); }
@@ -380,14 +333,14 @@
                 renderAlerts(nationalAlerts, { fallbackType: 'national' });
             } catch (error) {
                 console.error("Firestore (national alerts) fetch error:", error);
-                renderAlerts([], { fallbackType: 'all-clear' }); // Show all clear if fetch fails
+                renderAlerts([], { fallbackType: 'all-clear' });
             }
         }
 
         function attachAlertsListener() {
             if (listeners.alerts) listeners.alerts();
             if (listeners.nationalAlerts) listeners.nationalAlerts();
-            listeners.nationalAlerts = null; // Stop any potential national listener
+            listeners.nationalAlerts = null; 
 
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
             const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
@@ -397,7 +350,7 @@
                 renderAlerts(alerts, { fallbackType: 'local' });
             }, (error) => { 
                 console.error("Firestore (local alerts) query error:", error);
-                handleLocationDenied(); // Fallback to national view if local fails
+                handleLocationDenied();
             });
         }
 
@@ -489,7 +442,7 @@
 
         async function renderGroupDetail(groupId) {
             const container = document.getElementById('group-detail-view');
-            container.innerHTML = '<div class="loader"></div>'; // Show loader while fetching details
+            container.innerHTML = '<div class="loader"></div>'; 
             
             const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
             const groupSnap = await getDoc(groupRef);
@@ -519,13 +472,17 @@
                         statusColor = 'var(--brand-red)';
                         statusIcon = 'alert-triangle';
                     }
+                    
+                    const nameElement = isCurrentUser
+                        ? `<p style="font-weight: 500; cursor: pointer;" id="current-user-name" data-current-name="${member.name}">${member.name} (You)</p>`
+                        : `<p style="font-weight: 500;">${member.name}</p>`;
 
                     return `
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
                                 <i data-lucide="${statusIcon}" style="color: ${statusColor};"></i>
                                 <div>
-                                    <p style="font-weight: 500;">${member.name} ${isCurrentUser ? '(You)' : ''}</p>
+                                    ${nameElement}
                                     <p style="font-size: 0.75rem; color: var(--text-secondary);" id="timer-${member.id}">${timeText}</p>
                                 </div>
                             </div>
@@ -552,6 +509,17 @@
                 document.getElementById('help-btn').addEventListener('click', () => updateSafetyStatus('Needs Help'));
                 document.getElementById('leave-group-btn').addEventListener('click', () => confirmLeaveGroup(group.id, group.name));
                 
+                const currentUserNameEl = document.getElementById('current-user-name');
+                if(currentUserNameEl) {
+                    currentUserNameEl.addEventListener('dblclick', () => {
+                        const currentName = currentUserNameEl.dataset.currentName;
+                        const newName = prompt("Enter your new name:", currentName);
+                        if (newName && newName.trim() !== '') {
+                            updateUserName(newName.trim());
+                        }
+                    });
+                }
+
                 lucide.createIcons();
                 
                  Object.values(memberStatuses).forEach(member => {
@@ -560,9 +528,11 @@
                         groupMemberTimers[member.id] = setInterval(() => {
                             const timerEl = document.getElementById(`timer-${member.id}`);
                             if (timerEl) {
-                                timerEl.textContent = formatTimeRemaining(member.statusExpiresAt);
-                                if (timerEl.textContent === "Expired") {
+                                const remaining = formatTimeRemaining(member.statusExpiresAt);
+                                timerEl.textContent = remaining;
+                                if (remaining === "Expired") {
                                     clearInterval(groupMemberTimers[member.id]);
+                                    // Could re-render the whole UI here if needed
                                 }
                             } else {
                                 clearInterval(groupMemberTimers[member.id]);
@@ -582,6 +552,16 @@
                     }
                 });
             });
+        }
+        
+        async function updateUserName(newName) {
+            if (!userId || !newName) return;
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+            try {
+                await updateDoc(userRef, { name: newName });
+            } catch(error) {
+                console.error("Error updating user name:", error);
+            }
         }
 
         function clearAllListeners(type) {
