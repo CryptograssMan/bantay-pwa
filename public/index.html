@@ -143,8 +143,8 @@
                 
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        userId = user.uid;
-                        await handleUserSession(userId);
+                        const finalUserId = await handleUserSession(user.uid);
+                        userId = finalUserId;
                         
                         document.getElementById('status-indicator').textContent = '● Live';
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
@@ -178,36 +178,44 @@
         async function handleUserSession(currentAuthId) {
             const storedId = localStorage.getItem(PERSISTENT_UID_KEY);
 
-            if (storedId && storedId !== currentAuthId) {
-                // A new anonymous session has been created. Attempt to migrate data.
-                console.log(`New session detected. Migrating data from ${storedId} to ${currentAuthId}`);
+            if (!storedId) {
+                console.log('First visit. Setting up new user.');
+                localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+                await setupUserDocument(currentAuthId);
+                return currentAuthId;
+            }
+
+            if (storedId !== currentAuthId) {
+                console.log(`New auth session detected. Old ID: ${storedId}, New ID: ${currentAuthId}`);
+                
+                const newUserSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/users`, currentAuthId));
+                if (newUserSnap.exists() && (newUserSnap.data().groups?.length ?? 0) > 0) {
+                     console.log('New user ID already has a document with data. Using it as primary.');
+                     localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+                     return currentAuthId;
+                }
+                
                 await migrateUserData(storedId, currentAuthId);
+                localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+                return currentAuthId;
             }
             
             await setupUserDocument(currentAuthId);
-            
-            // Ensure the persistent ID is always up-to-date.
-            localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+            return currentAuthId;
         }
         
         async function migrateUserData(oldId, newId) {
             const oldUserRef = doc(db, `artifacts/${appId}/public/data/users`, oldId);
             const newUserRef = doc(db, `artifacts/${appId}/public/data/users`, newId);
-
             try {
                 const oldUserSnap = await getDoc(oldUserRef);
                 if (oldUserSnap.exists()) {
                     const oldData = oldUserSnap.data();
-                    if (oldData.groups && oldData.groups.length > 0) {
-                        // Create the new user doc first before updating it.
-                        await setDoc(newUserRef, { 
-                            name: oldData.name || `User ${newId.substring(0, 5)}`,
-                            status: oldData.status || 'Unknown',
-                            lastUpdate: oldData.lastUpdate || null,
-                            groups: oldData.groups
-                        }, { merge: true }); // Use merge to be safe
-                        console.log("User data migrated successfully.");
-                    }
+                    await setDoc(newUserRef, oldData);
+                    console.log("User data migrated successfully.");
+                } else {
+                     console.log("Old user document not found, cannot migrate.");
+                     await setupUserDocument(newId);
                 }
             } catch (error) {
                 console.error("Error migrating user data:", error);
@@ -216,11 +224,15 @@
 
         async function setupUserDocument(uid){
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
-            const userSnap = await getDoc(userRef);
-            if (!userSnap.exists()) {
-                console.log(`Creating new user document for ${uid}`);
-                const name = "User " + uid.substring(0, 5);
-                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
+            try {
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    console.log(`Creating new user document for ${uid}`);
+                    const name = "User " + uid.substring(0, 5);
+                    await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
+                }
+            } catch (error) {
+                 console.error("Error setting up user document:", error);
             }
         }
 
@@ -283,16 +295,22 @@
             const subtitleEl = document.getElementById('warnings-subtitle');
             container.innerHTML = '';
             if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
-            if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
+            
+            const subtitleHasError = subtitleEl.textContent.includes("denied") || subtitleEl.textContent.includes("timed out") || subtitleEl.textContent.includes("determined");
+
+            if (!subtitleHasError) {
                  subtitleEl.style.color = 'var(--text-secondary)'; 
             }
+
             if (options.type === 'national') {
                 titleEl.textContent = "Top National Alerts";
-                if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
+                if (!subtitleHasError) {
                     subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
                 }
             } else if (options.type === 'local') {
-                titleEl.textContent = "Active Warnings"; subtitleEl.textContent = "Based on your current location";
+                titleEl.textContent = "Active Warnings"; 
+                subtitleEl.textContent = "Based on your current location";
+                subtitleEl.style.color = 'var(--text-secondary)';
             } else if (options.type === 'error') {
                 titleEl.textContent = "Connection Error"; subtitleEl.textContent = "Could not fetch live alerts at this time.";
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`; return;
@@ -300,29 +318,29 @@
                 titleEl.textContent = "Offline Mode"; subtitleEl.textContent = "Connect to the internet for live data.";
                  container.innerHTML = `<div style="text-align: center; color: var(--text-secondary);"><p>Cannot connect to live services.</p></div>`; return;
             }
-            if(alerts.length === 0) {
+
+            if(alerts.length === 0 && !subtitleHasError) {
                  titleEl.textContent = "All Clear";
-                 if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
-                    subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
-                 }
+                 subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
-                 lucide.createIcons(); return;
+                 lucide.createIcons();
+            } else if (alerts.length > 0) {
+                 alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
+                 alerts.forEach(alert => {
+                    const { severity, title, details, source, time, lat, lon, location } = alert;
+                    const styles = getAlertStyles(severity);
+                    const alertEl = document.createElement('div');
+                    alertEl.className = 'alert-item';
+                    alertEl.style.borderColor = styles.color;
+                    alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;"><span>${source}</span><span>${formatFullDateTime(new Date(time))} (${formatTimeAgo(new Date(time))})</span></div></div></div>`;
+                    container.appendChild(alertEl);
+                    if (map && lat && lon) {
+                        const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
+                        marker.bindPopup(`<b>${title}</b><br>${location}`);
+                    }
+                });
+                lucide.createIcons();
             }
-            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
-            alerts.forEach(alert => {
-                const { severity, title, details, source, time, lat, lon, location } = alert;
-                const styles = getAlertStyles(severity);
-                const alertEl = document.createElement('div');
-                alertEl.className = 'alert-item';
-                alertEl.style.borderColor = styles.color;
-                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;"><span>${source}</span><span>${formatFullDateTime(new Date(time))} (${formatTimeAgo(new Date(time))})</span></div></div></div>`;
-                container.appendChild(alertEl);
-                if (map && lat && lon) {
-                    const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
-                    marker.bindPopup(`<b>${title}</b><br>${location}`);
-                }
-            });
-            lucide.createIcons();
         }
         
         async function attachRatingsListener() {
