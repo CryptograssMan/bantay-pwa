@@ -145,19 +145,27 @@
                 return;
             }
             
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            };
+
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     localStorage.setItem('location-choice-made', 'true');
                     document.getElementById('location-banner').classList.add('hidden');
                     attachAlertsListener('local'); 
                 },
-                () => {
+                (error) => {
+                    console.error("Geolocation error:", error);
                     localStorage.setItem('location-choice-made', 'true');
                     document.getElementById('location-banner').classList.add('hidden');
                     const subtitle = document.getElementById('warnings-subtitle');
-                    subtitle.textContent = "Showing national alerts. Location was denied.";
+                    subtitle.textContent = "Showing national alerts. Location could not be determined.";
                     subtitle.style.color = 'var(--brand-red)';
-                }
+                },
+                options
             );
         }
         
