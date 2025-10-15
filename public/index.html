@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAFE ka ba? - Calamity Watch</title>
     
+    <link rel="manifest" href="manifest.json">
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -57,7 +59,10 @@
 
         <div id="main-content">
              <div id="install-banner" class="hidden" style="background-color: #dbeafe; color: #1e40af; padding: 0.75rem 1rem; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: center;">
-                <span>For the best experience, add this app to your homescreen!</span>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <i data-lucide="smartphone"></i>
+                    <span><b>Pro Tip:</b> Add to Home Screen to save your session!</span>
+                </div>
                 <button id="dismiss-install-btn" style="background:none; border:none; color:inherit; cursor: pointer;"><i data-lucide="x" class="h-5 w-5"></i></button>
             </div>
              <div id="alerts-view">
@@ -642,7 +647,7 @@
                             if (timerEl) {
                                 const remaining = formatTimeRemaining(member.statusExpiresAt);
                                 timerEl.textContent = remaining;
-                                if (remaining === "Expired") { clearInterval(groupMemberTimers[member.id]); }
+                                if (remaining === "Expired") { clearInterval(groupMemberTimimers[member.id]); }
                             } else { clearInterval(groupMemberTimers[member.id]); }
                         }, 60000);
                     }
