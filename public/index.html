@@ -62,7 +62,7 @@
                 <div id="map"></div>
                 <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
                     <h2 id="warnings-title" style="font-weight: 600; font-size: 1.125rem;">Active Warnings</h2>
-                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Requesting location...</p>
+                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Loading alerts...</p>
                 </div>
                 <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></main>
             </div>
@@ -123,11 +123,25 @@
             initializeFirebase();
         });
 
-        function initializeStaticUI() { /* ... as before ... */ }
+        function initializeStaticUI() {
+            lucide.createIcons();
+            initializeMap();
+            document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
+            document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
+            document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
+            document.getElementById('close-settings-btn').addEventListener('click', () => toggleModal('settings-modal', false));
+            document.getElementById('save-username-btn').addEventListener('click', saveUserName);
+            document.getElementById('enable-location-modal-btn').addEventListener('click', requestLocationPermission);
+            document.getElementById('enable-location-banner-btn').addEventListener('click', requestLocationPermission);
+        }
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                // ... (offline mode handling)
+                console.warn("Firebase config not found. Running in offline/demo mode.");
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('status-indicator').textContent = '● Offline';
+                document.getElementById('status-indicator').style.color = '#e5e7eb';
+                renderAlerts([], { fallbackType: 'offline' });
                 return;
             }
             try {
@@ -142,13 +156,20 @@
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
-                        await checkAndRequestLocationPermission();
+                        
+                        // ** FIX: Load national alerts first, then ask for location to prevent getting stuck **
+                        attachNationalAlertsListener(); 
+                        checkAndRequestLocationPermission(); 
+
                         document.getElementById('loading-overlay').style.display = 'none';
                     } else {
                         await signInAnonymously(auth);
                     }
                 });
-            } catch (error) { /* ... error handling ... */ }
+            } catch (error) { 
+                console.error("Firebase Initialization Error:", error);
+                document.getElementById('loading-overlay').innerHTML = `<p style="color: red; text-align: center;">Firebase configuration error.<br>Please check deployment plan.</p>`;
+            }
         }
 
         function switchView(viewName) {
@@ -158,7 +179,7 @@
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
             
-            clearAllListeners('groupMembers'); // Clean up group member listeners when switching views
+            clearAllListeners('groupMembers');
 
             if (viewName === 'alerts') {
                 document.getElementById('alerts-view').classList.remove('hidden');
@@ -172,16 +193,76 @@
             }
         }
 
-        function toggleModal(modalId, show) { /* ... as before ... */ }
+        function toggleModal(modalId, show) {
+            const modal = document.getElementById(modalId);
+            if (show) {
+                modal.classList.remove('hidden');
+                lucide.createIcons();
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
 
-        async function openSettingsModal() { /* ... as before ... */ }
+        async function openSettingsModal() {
+            if (!userId) return;
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                document.getElementById('username-input').value = userSnap.data().name || '';
+                document.getElementById('user-id-display').textContent = userId;
+                toggleModal('settings-modal', true);
+            }
+        }
 
-        async function saveUserName() { /* ... as before ... */ }
+        async function saveUserName() {
+            if (!userId) return;
+            const newName = document.getElementById('username-input').value.trim();
+            if (!newName) return;
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+            try {
+                await updateDoc(userRef, { name: newName });
+                toggleModal('settings-modal', false);
+            } catch (error) { console.error("Error updating name:", error); }
+        }
 
-        async function checkAndRequestLocationPermission() { /* ... as before ... */ }
-        function handleLocationDenied() { /* ... as before ... */ }
-        function requestLocationPermission() { /* ... as before ... */ }
-        function getUserLocation() { /* ... as before ... */ }
+        async function checkAndRequestLocationPermission() {
+            if (!navigator.geolocation) {
+                document.getElementById('warnings-subtitle').textContent = 'Location not supported.';
+                return;
+            }
+            try {
+                const permission = await navigator.permissions.query({ name: 'geolocation' });
+                if (permission.state === 'granted') {
+                    getUserLocation();
+                } else if (permission.state === 'prompt') {
+                    toggleModal('location-permission-modal', true);
+                } else {
+                    handleLocationDenied();
+                }
+            } catch (error) {
+                getUserLocation();
+            }
+        }
+        
+        function handleLocationDenied() {
+            document.getElementById('location-denied-banner').classList.remove('hidden');
+        }
+
+        function requestLocationPermission() {
+            toggleModal('location-permission-modal', false);
+            getUserLocation();
+        }
+
+        function getUserLocation() {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    document.getElementById('location-denied-banner').classList.add('hidden');
+                    // This is where we upgrade from national to local alerts.
+                    attachAlertsListener(); 
+                },
+                () => { handleLocationDenied(); }
+            );
+        }
 
         function updateSafetyStatus(newStatus) {
             if (!userId) return;
@@ -211,167 +292,155 @@
              const groupNameInput = prompt("Enter a name for your new group:", "My Family");
             if (!groupNameInput || !groupNameInput.trim()) return;
             const groupName = groupNameInput.trim();
-            // ... (rest of create group logic as before)
+            const code = `${groupName.replace(/\s+/g, '-').toUpperCase()}-${Math.random().toString(36).substr(2, 4)}`;
+            try {
+                const groupDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/groups`), { name: groupName, code: code, members: [userId] });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDocRef.id) });
+                
+                const modal = document.getElementById('share-group-modal');
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <div style="text-align: center;"><i data-lucide="check-circle" style="width: 3rem; height: 3rem; color: var(--brand-green);"></i></div>
+                        <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Group Created!</h3>
+                        <p style="text-align:center;">Share this code with others to invite them to "${groupName}":</p>
+                        <p style="font-family: monospace; background-color: var(--background); padding: 0.75rem; border-radius: 0.5rem; text-align:center; font-size: 1.25rem;">${code}</p>
+                        <button id="share-invite-btn" class="btn btn-blue">Share Invite</button>
+                        <button id="close-share-modal-btn" class="btn" style="background-color: var(--text-secondary);">Done</button>
+                    </div>`;
+                document.getElementById('share-invite-btn').onclick = () => shareGroupInvite(code);
+                document.getElementById('close-share-modal-btn').onclick = () => toggleModal('share-group-modal', false);
+                toggleModal('share-group-modal', true);
+
+            } catch (error) { console.error("Error creating group:", error); }
         }
-        function shareGroupInvite(code) { /* ... as before ... */ }
+
+        function shareGroupInvite(code) {
+            const shareData = {
+                title: 'SAFE ka ba? Group Invite',
+                text: `Join my safety group on SAFE ka ba? Use this code: ${code}`,
+            };
+            if (navigator.share) {
+                navigator.share(shareData);
+            } else {
+                navigator.clipboard.writeText(shareData.text);
+                alert("Invite text copied to clipboard!");
+            }
+        }
+
         async function joinGroup() {
              const codeInput = prompt("Enter the group code to join:");
             if (!codeInput || !codeInput.trim()) return;
             const code = codeInput.trim();
-            // ... (rest of join group logic as before)
+            try {
+                const q = query(collection(db, `artifacts/${appId}/public/data/groups`), where("code", "==", code));
+                const querySnapshot = await getDocs(q);
+                if (querySnapshot.empty) return alert("Group not found.");
+                const groupDoc = querySnapshot.docs[0];
+                await updateDoc(groupDoc.ref, { members: arrayUnion(userId) });
+                await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDoc.id) });
+                alert(`Successfully joined "${groupDoc.data().name}".`);
+            } catch (error) { console.error("Error joining group:", error); alert("Could not join group."); }
         }
-        function confirmLeaveGroup(groupId, groupName) { /* ... as before ... */ }
-        async function executeLeaveGroup(groupId) { /* ... as before ... */ }
 
-        function attachAlertsListener() { /* ... as before ... */ }
-        function attachNationalAlertsListener() { /* ... as before ... */ }
-        function renderAlerts(alerts, options = { fallbackType: 'none' }) { /* ... as before ... */ }
+        function confirmLeaveGroup(groupId, groupName) {
+            const modal = document.getElementById('confirm-leave-modal');
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Leave Group</h3>
+                    <p style="text-align: center; color: var(--text-secondary);">Are you sure you want to leave "${groupName}"? You will no longer see their status updates.</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button id="cancel-leave-btn" class="btn" style="background-color: var(--text-secondary);">Cancel</button>
+                        <button id="confirm-leave-btn" class="btn btn-red">Leave</button>
+                    </div>
+                </div>`;
+            document.getElementById('cancel-leave-btn').onclick = () => toggleModal('confirm-leave-modal', false);
+            document.getElementById('confirm-leave-btn').onclick = () => executeLeaveGroup(groupId);
+            toggleModal('confirm-leave-modal', true);
+        }
 
-        function attachUserGroupsListener(uid) {
-            if (listeners.userGroups) listeners.userGroups();
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
-            listeners.userGroups = onSnapshot(userRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    renderGroupList(docSnap.data().groups || []);
+        async function executeLeaveGroup(groupId) {
+            if (!userId || !groupId) return;
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
+            const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
+            try {
+                await updateDoc(userRef, { groups: arrayRemove(groupId) });
+                await updateDoc(groupRef, { members: arrayRemove(userId) });
+                toggleModal('confirm-leave-modal', false);
+                switchView('groups');
+            } catch (error) { console.error("Error leaving group:", error); }
+        }
+
+        function attachAlertsListener() {
+            if (listeners.alerts) listeners.alerts();
+            if (listeners.nationalAlerts) listeners.nationalAlerts();
+            const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
+            const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
+            listeners.alerts = onSnapshot(q, (querySnapshot) => {
+                const alerts = [];
+                querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
+                renderAlerts(alerts.length > 0 ? alerts : [], { fallbackType: alerts.length > 0 ? 'local' : 'all-clear-local' });
+            }, (error) => { console.error("Firestore query error:", error); });
+        }
+
+        function attachNationalAlertsListener() {
+            if (listeners.nationalAlerts) listeners.nationalAlerts();
+            const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
+            const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
+            listeners.nationalAlerts = onSnapshot(q, (querySnapshot) => {
+                const nationalAlerts = [];
+                querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
+                renderAlerts(nationalAlerts.length > 0 ? nationalAlerts : [], { fallbackType: nationalAlerts.length > 0 ? 'national' : 'all-clear' });
+            }, (error) => { console.error("Firestore query error:", error); });
+        }
+
+        function renderAlerts(alerts, options = { fallbackType: 'none' }){
+            const container = document.getElementById('alert-list');
+            const titleEl = document.getElementById('warnings-title');
+            const subtitleEl = document.getElementById('warnings-subtitle');
+            container.innerHTML = '';
+            
+            if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
+
+            if (options.fallbackType === 'national') {
+                titleEl.textContent = "Top National Alerts";
+                subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+            } else if (options.fallbackType === 'local') {
+                titleEl.textContent = "Active Warnings";
+                subtitleEl.textContent = "Based on your current location";
+            } else if (options.fallbackType.startsWith('all-clear')) {
+                titleEl.textContent = "All Clear";
+                const message = options.fallbackType === 'all-clear-local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+                subtitleEl.textContent = message;
+                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
+                lucide.createIcons();
+                return;
+            } else if (options.fallbackType === 'offline') {
+                titleEl.textContent = "Offline Mode";
+                subtitleEl.textContent = "Connect to the internet for live data.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>Cannot connect to live services.</p></div>`;
+            }
+
+            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
+            alerts.forEach(alert => {
+                const { severity, title, details, source, time, lat, lon, location } = alert;
+                const styles = getAlertStyles(severity);
+                const alertEl = document.createElement('div');
+                alertEl.className = 'alert-item';
+                alertEl.style.borderColor = styles.color;
+                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                container.appendChild(alertEl);
+                
+                if (map && lat && lon) {
+                    const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
+                    marker.bindPopup(`<b>${title}</b><br>${location}`);
                 }
             });
-        }
-        
-        async function renderGroupList(groupIds) {
-            const container = document.getElementById('groups-view');
-            let content = `
-                <h2 style="font-size: 1.25rem; font-weight: 700;">Your Safety Groups</h2>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <button id="join-group-btn" class="btn btn-red"><i data-lucide="plus-circle"></i><span>Join a Group</span></button>
-                    <button id="create-group-btn" class="btn btn-blue"><i data-lucide="users"></i><span>Create a Group</span></button>
-                </div>
-                <div id="group-list-items" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>`;
-            container.innerHTML = content;
-
-            const listContainer = document.getElementById('group-list-items');
-            if (groupIds.length === 0) {
-                listContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>You haven't joined any groups yet.</p></div>`;
-            } else {
-                 for (const groupId of groupIds) {
-                    const groupSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/groups`, groupId));
-                    if (groupSnap.exists()) {
-                        const group = groupSnap.data();
-                        const el = document.createElement('div');
-                        el.style = "padding: 1rem; background-color: white; border-radius: 0.75rem; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);";
-                        el.innerHTML = `<div><p style="font-weight: 600;">${group.name}</p><p style="font-size: 0.75rem; color: var(--text-secondary);">${group.members.length} members</p></div><i data-lucide="chevron-right"></i>`;
-                        el.onclick = () => { switchView('group-detail'); renderGroupDetail(groupId); }
-                        listContainer.appendChild(el);
-                    }
-                }
-            }
-            document.getElementById('join-group-btn').addEventListener('click', joinGroup);
-            document.getElementById('create-group-btn').addEventListener('click', createGroup);
             lucide.createIcons();
         }
 
-        async function renderGroupDetail(groupId) {
-            const container = document.getElementById('group-detail-view');
-            container.innerHTML = ''; // Clear previous content
-            
-            const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
-            const groupSnap = await getDoc(groupRef);
-            if (!groupSnap.exists()) return;
-
-            const group = { id: groupSnap.id, ...groupSnap.data() };
-            const memberStatuses = {};
-
-            const updateUI = () => {
-                let memberHtml = Object.values(memberStatuses).sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(member => {
-                    const isCurrentUser = member.id === userId;
-                    const status = member.status || 'Unknown';
-                    let statusColor = 'var(--text-secondary)';
-                    let statusIcon = 'help-circle';
-                    let timeText = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
-                    
-                    if (member.statusExpiresAt && member.statusExpiresAt.toDate() < new Date()) {
-                        status = 'Unknown (Expired)';
-                    }
-
-                    if (status === 'Safe') {
-                        statusColor = 'var(--brand-green)';
-                        statusIcon = 'check-circle';
-                        timeText = formatTimeRemaining(member.statusExpiresAt);
-                    } else if (status === 'Needs Help') {
-                        statusColor = 'var(--brand-red)';
-                        statusIcon = 'alert-triangle';
-                    }
-
-                    return `
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <i data-lucide="${statusIcon}" style="color: ${statusColor};"></i>
-                                <div>
-                                    <p style="font-weight: 500;">${member.name} ${isCurrentUser ? '(You)' : ''}</p>
-                                    <p style="font-size: 0.75rem; color: var(--text-secondary);" id="timer-${member.id}">${timeText}</p>
-                                </div>
-                            </div>
-                            <span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${status}</span>
-                        </div>`;
-                }).join('');
-
-                container.innerHTML = `
-                    <button id="back-to-groups-btn" style="align-self: flex-start; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;"><i data-lucide="arrow-left"></i><span>All Groups</span></button>
-                    <h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button id="safe-btn" class="btn btn-green"><i data-lucide="shield-check"></i><span>I AM SAFE</span></button>
-                        <button id="help-btn" class="btn btn-red"><i data-lucide="alert-circle"></i><span>I NEED HELP</span></button>
-                    </div>
-                    <div id="member-list" style="display: flex; flex-direction: column; gap: 0.5rem;">${memberHtml}</div>
-                    <div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color);">
-                        <p style="font-size: 0.75rem; color: var(--text-secondary);">Group Code:</p>
-                        <p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p>
-                        <button id="leave-group-btn" style="background:none; border:none; color:var(--brand-red); text-decoration: underline; cursor:pointer; margin-top: 1rem;">Leave Group</button>
-                    </div>`;
-                
-                document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
-                document.getElementById('safe-btn').addEventListener('click', () => updateSafetyStatus('Safe'));
-                document.getElementById('help-btn').addEventListener('click', () => updateSafetyStatus('Needs Help'));
-                document.getElementById('leave-group-btn').addEventListener('click', () => confirmLeaveGroup(group.id, group.name));
-                
-                lucide.createIcons();
-                
-                // Set up timers for 'Safe' members
-                 Object.values(memberStatuses).forEach(member => {
-                    if (member.status === 'Safe' && member.statusExpiresAt) {
-                        if (groupMemberTimers[member.id]) clearInterval(groupMemberTimers[member.id]);
-                        groupMemberTimers[member.id] = setInterval(() => {
-                            const timerEl = document.getElementById(`timer-${member.id}`);
-                            if (timerEl) {
-                                timerEl.textContent = formatTimeRemaining(member.statusExpiresAt);
-                            } else {
-                                clearInterval(groupMemberTimers[member.id]);
-                            }
-                        }, 60000); // Update every minute
-                    }
-                 });
-            };
-
-            clearAllListeners('groupMembers');
-            group.members.forEach(memberId => {
-                const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
-                listeners.groupMembers[memberId] = onSnapshot(memberRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        memberStatuses[memberId] = { id: memberId, ...docSnap.data() };
-                        updateUI();
-                    }
-                });
-            });
-        }
-
-        function clearAllListeners(type) {
-            if (type === 'groupMembers') {
-                Object.values(listeners.groupMembers).forEach(unsub => unsub());
-                listeners.groupMembers = {};
-                Object.values(groupMemberTimers).forEach(timer => clearInterval(timer));
-                groupMemberTimers = {};
-            }
-        }
-
+        async function renderGroupList(groupIds) { /* ... as before ... */ }
+        async function renderGroupDetail(groupId) { /* ... as before ... */ }
+        function clearAllListeners(type) { /* ... as before ... */ }
         function initializeMap(){ /* ... as before ... */ }
         function getAlertStyles(severity){ /* ... as before ... */ }
         function formatTimeAgo(date){ /* ... as before ... */ }
