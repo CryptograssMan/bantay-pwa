@@ -153,9 +153,12 @@
                         attachRatingsListener();
                         attachAlertsListener('national');
                         
-                        if (localStorage.getItem('location-choice-made')) {
-                            document.getElementById('location-banner').classList.add('hidden');
+                        if (localStorage.getItem('location-choice-made') === 'denied') {
+                             document.getElementById('location-banner').classList.remove('hidden');
+                        } else if (localStorage.getItem('location-choice-made') === 'granted') {
+                             document.getElementById('location-banner').classList.add('hidden');
                         }
+
 
                         const urlParams = new URLSearchParams(window.location.search);
                         const groupCodeToJoin = urlParams.get('join-group');
@@ -241,7 +244,7 @@
             const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    localStorage.setItem('location-choice-made', 'true');
+                    localStorage.setItem('location-choice-made', 'granted');
                     document.getElementById('location-banner').classList.add('hidden');
                     const subtitle = document.getElementById('warnings-subtitle');
                     subtitle.textContent = "Based on your current location";
@@ -250,14 +253,14 @@
                 },
                 (error) => {
                     console.error("Geolocation error:", error);
-                    localStorage.setItem('location-choice-made', 'true');
-                    document.getElementById('location-banner').classList.add('hidden');
                     const subtitle = document.getElementById('warnings-subtitle');
                     if (error.code === error.PERMISSION_DENIED) {
-                        subtitle.innerHTML = 'Location access denied. Enable in Settings > Privacy > Location.';
+                        localStorage.setItem('location-choice-made', 'denied');
+                        document.getElementById('location-banner').classList.remove('hidden');
+                        subtitle.innerHTML = 'Location access denied. Showing national alerts.';
                     } else if (error.code === error.TIMEOUT) {
-                        subtitle.textContent = "Location timed out. Please try again in an open area.";
-                    } else { subtitle.textContent = "Location could not be determined."; }
+                        subtitle.textContent = "Location timed out. Showing national alerts.";
+                    } else { subtitle.textContent = "Location could not be determined. Showing national alerts."; }
                     subtitle.style.color = 'var(--brand-red)';
                     attachAlertsListener('national');
                 },
@@ -305,12 +308,13 @@
                 titleEl.textContent = "Top National Alerts";
                 if (!subtitleHasError) {
                     subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+                    subtitleEl.style.color = 'var(--text-secondary)';
                 }
             } else if (options.type === 'local') {
                 titleEl.textContent = "Active Warnings"; 
-                // Don't overwrite the subtitle if it was set by the success callback in getUserLocation
-                if (!subtitleEl.textContent.includes("Based on your current location")) {
-                     subtitleEl.textContent = "Latest alerts for your area.";
+                if (!subtitleHasError) {
+                    subtitleEl.textContent = "Based on your current location";
+                    subtitleEl.style.color = 'var(--text-secondary)';
                 }
             } else if (options.type === 'error') {
                 titleEl.textContent = "Connection Error"; subtitleEl.textContent = "Could not fetch live alerts at this time.";
@@ -521,6 +525,8 @@
             listeners.userGroups = onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     renderGroupList(docSnap.data().groups || []);
+                } else {
+                    renderGroupList([]);
                 }
             });
         }
@@ -535,9 +541,10 @@
                 <div id="group-list-items" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>`;
             container.innerHTML = content;
             const listContainer = document.getElementById('group-list-items');
-            if (groupIds.length === 0) {
+            if (!groupIds || groupIds.length === 0) {
                 listContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>You haven't joined any groups yet.</p></div>`;
             } else {
+                 listContainer.innerHTML = ''; // Clear previous items
                  for (const groupId of groupIds) {
                     const groupSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/groups`, groupId));
                     if (groupSnap.exists()) {
