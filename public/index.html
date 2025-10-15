@@ -243,6 +243,9 @@
                 (position) => {
                     localStorage.setItem('location-choice-made', 'true');
                     document.getElementById('location-banner').classList.add('hidden');
+                    const subtitle = document.getElementById('warnings-subtitle');
+                    subtitle.textContent = "Based on your current location";
+                    subtitle.style.color = 'var(--text-secondary)';
                     attachAlertsListener('local'); 
                 },
                 (error) => {
@@ -296,11 +299,7 @@
             container.innerHTML = '';
             if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
             
-            const subtitleHasError = subtitleEl.textContent.includes("denied") || subtitleEl.textContent.includes("timed out") || subtitleEl.textContent.includes("determined");
-
-            if (!subtitleHasError) {
-                 subtitleEl.style.color = 'var(--text-secondary)'; 
-            }
+            const subtitleHasError = subtitleEl.style.color === 'var(--brand-red)';
 
             if (options.type === 'national') {
                 titleEl.textContent = "Top National Alerts";
@@ -309,8 +308,10 @@
                 }
             } else if (options.type === 'local') {
                 titleEl.textContent = "Active Warnings"; 
-                subtitleEl.textContent = "Based on your current location";
-                subtitleEl.style.color = 'var(--text-secondary)';
+                // Don't overwrite the subtitle if it was set by the success callback in getUserLocation
+                if (!subtitleEl.textContent.includes("Based on your current location")) {
+                     subtitleEl.textContent = "Latest alerts for your area.";
+                }
             } else if (options.type === 'error') {
                 titleEl.textContent = "Connection Error"; subtitleEl.textContent = "Could not fetch live alerts at this time.";
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`; return;
@@ -319,9 +320,11 @@
                  container.innerHTML = `<div style="text-align: center; color: var(--text-secondary);"><p>Cannot connect to live services.</p></div>`; return;
             }
 
-            if(alerts.length === 0 && !subtitleHasError) {
-                 titleEl.textContent = "All Clear";
-                 subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+            if(alerts.length === 0) {
+                 if (!subtitleHasError) {
+                    titleEl.textContent = "All Clear";
+                    subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+                 }
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
                  lucide.createIcons();
             } else if (alerts.length > 0) {
