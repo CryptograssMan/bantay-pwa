@@ -112,6 +112,7 @@
         let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null };
         let groupMemberTimers = {};
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
+        const PERSISTENT_UID_KEY = 'safekaba_persistent_uid';
 
         document.addEventListener('DOMContentLoaded', () => {
             initializeStaticUI();
@@ -125,7 +126,6 @@
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
             document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
             
-            // Feedback and Rating Listeners
             document.getElementById('feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.remove('hidden'); });
             document.getElementById('cancel-feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.add('hidden'); });
             document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
@@ -134,24 +134,23 @@
         }
 
         async function initializeFirebase() {
-            if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                // ... (offline handling)
-                return;
-            }
+            if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) { return; }
             try {
                 const firebaseConfig = JSON.parse(atob(firebaseConfigB64).trim());
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
+                
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
+                        await handleUserSession(userId);
+                        
                         document.getElementById('status-indicator').textContent = '● Live';
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
-                        await setupUserDocument(userId);
+                        
                         attachUserGroupsListener(userId);
                         attachRatingsListener();
-                        
                         attachAlertsListener('national');
                         
                         if (localStorage.getItem('location-choice-made')) {
@@ -176,12 +175,57 @@
             }
         }
 
-        // ... (getUserLocation, attachAlertsListener remain the same)
-        function getUserLocation() {
-            if (!navigator.geolocation) {
-                alert("Geolocation is not supported by your browser.");
-                return;
+        async function handleUserSession(currentAuthId) {
+            const storedId = localStorage.getItem(PERSISTENT_UID_KEY);
+
+            if (storedId && storedId !== currentAuthId) {
+                // A new anonymous session has been created. Attempt to migrate data.
+                console.log(`New session detected. Migrating data from ${storedId} to ${currentAuthId}`);
+                await migrateUserData(storedId, currentAuthId);
             }
+            
+            await setupUserDocument(currentAuthId);
+            
+            // Ensure the persistent ID is always up-to-date.
+            localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+        }
+        
+        async function migrateUserData(oldId, newId) {
+            const oldUserRef = doc(db, `artifacts/${appId}/public/data/users`, oldId);
+            const newUserRef = doc(db, `artifacts/${appId}/public/data/users`, newId);
+
+            try {
+                const oldUserSnap = await getDoc(oldUserRef);
+                if (oldUserSnap.exists()) {
+                    const oldData = oldUserSnap.data();
+                    if (oldData.groups && oldData.groups.length > 0) {
+                        // Create the new user doc first before updating it.
+                        await setDoc(newUserRef, { 
+                            name: oldData.name || `User ${newId.substring(0, 5)}`,
+                            status: oldData.status || 'Unknown',
+                            lastUpdate: oldData.lastUpdate || null,
+                            groups: oldData.groups
+                        }, { merge: true }); // Use merge to be safe
+                        console.log("User data migrated successfully.");
+                    }
+                }
+            } catch (error) {
+                console.error("Error migrating user data:", error);
+            }
+        }
+
+        async function setupUserDocument(uid){
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+            const userSnap = await getDoc(userRef);
+            if (!userSnap.exists()) {
+                console.log(`Creating new user document for ${uid}`);
+                const name = "User " + uid.substring(0, 5);
+                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
+            }
+        }
+
+        function getUserLocation() {
+            if (!navigator.geolocation) { alert("Geolocation is not supported by your browser."); return; }
             const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -198,15 +242,14 @@
                         subtitle.innerHTML = 'Location access denied. Enable in Settings > Privacy > Location.';
                     } else if (error.code === error.TIMEOUT) {
                         subtitle.textContent = "Location timed out. Please try again in an open area.";
-                    } else {
-                        subtitle.textContent = "Location could not be determined.";
-                    }
+                    } else { subtitle.textContent = "Location could not be determined."; }
                     subtitle.style.color = 'var(--brand-red)';
                     attachAlertsListener('national');
                 },
                 options
             );
         }
+
         function attachAlertsListener(type = 'national') {
             if (listeners.alerts) listeners.alerts();
             let alertsCol, q;
@@ -235,7 +278,6 @@
         }
         
         function renderAlerts(alerts, options = { type: 'national' }){
-            // ... (existing renderAlerts logic)
             const container = document.getElementById('alert-list');
             const titleEl = document.getElementById('warnings-title');
             const subtitleEl = document.getElementById('warnings-subtitle');
@@ -250,8 +292,7 @@
                     subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
                 }
             } else if (options.type === 'local') {
-                titleEl.textContent = "Active Warnings";
-                subtitleEl.textContent = "Based on your current location";
+                titleEl.textContent = "Active Warnings"; subtitleEl.textContent = "Based on your current location";
             } else if (options.type === 'error') {
                 titleEl.textContent = "Connection Error"; subtitleEl.textContent = "Could not fetch live alerts at this time.";
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`; return;
@@ -287,22 +328,17 @@
         async function attachRatingsListener() {
             if (listeners.ratings) listeners.ratings();
             const ratingRef = doc(db, `artifacts/${appId}/public/data/ratings`, 'app-ratings');
-
             listeners.ratings = onSnapshot(ratingRef, (docSnap) => {
                 const happyCountEl = document.getElementById('happy-count');
                 const sadCountEl = document.getElementById('sad-count');
-                
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     happyCountEl.textContent = data.happy || 0;
                     sadCountEl.textContent = data.sad || 0;
                 } else {
-                    happyCountEl.textContent = 0;
-                    sadCountEl.textContent = 0;
+                    happyCountEl.textContent = 0; sadCountEl.textContent = 0;
                 }
             });
-            
-            // Disable buttons if already voted
             const voted = localStorage.getItem('app-rated');
             if (voted) {
                 document.getElementById('rate-happy-btn').disabled = true;
@@ -314,20 +350,17 @@
 
         async function handleRating(vote) {
             if (localStorage.getItem('app-rated')) return;
-
             const ratingRef = doc(db, `artifacts/${appId}/public/data/ratings`, 'app-ratings');
             try {
                 await updateDoc(ratingRef, { [vote]: increment(1) });
                 localStorage.setItem('app-rated', vote);
-                attachRatingsListener(); // To refresh UI state
+                attachRatingsListener();
             } catch (error) {
                 if (error.code === 'not-found') {
                     await setDoc(ratingRef, { happy: 0, sad: 0, [vote]: 1 });
                     localStorage.setItem('app-rated', vote);
                     attachRatingsListener();
-                } else {
-                    console.error("Error submitting rating:", error);
-                }
+                } else { console.error("Error submitting rating:", error); }
             }
         }
 
@@ -335,41 +368,27 @@
             const emailEl = document.getElementById('feedback-email');
             const messageEl = document.getElementById('feedback-message');
             const errorEl = document.getElementById('feedback-error');
-            const email = emailEl.value;
-            const message = messageEl.value;
-
-            // Simple email validation
+            const email = emailEl.value; const message = messageEl.value;
             if (!/^\S+@\S+\.\S+$/.test(email)) {
-                errorEl.textContent = "Please enter a valid email address.";
-                errorEl.style.display = 'block';
-                return;
+                errorEl.textContent = "Please enter a valid email address."; errorEl.style.display = 'block'; return;
             }
             if (message.trim() === '') {
-                errorEl.textContent = "Please enter a message.";
-                errorEl.style.display = 'block';
-                return;
+                errorEl.textContent = "Please enter a message."; errorEl.style.display = 'block'; return;
             }
-
             errorEl.style.display = 'none';
-
             try {
                 await addDoc(collection(db, `artifacts/${appId}/public/data/feedback`), {
-                    email: email,
-                    message: message,
-                    timestamp: serverTimestamp()
+                    email: email, message: message, timestamp: serverTimestamp()
                 });
                 alert("Thank you! Your feedback has been sent.");
-                emailEl.value = '';
-                messageEl.value = '';
+                emailEl.value = ''; messageEl.value = '';
                 document.getElementById('feedback-modal').classList.add('hidden');
             } catch (error) {
                 console.error("Error sending feedback:", error);
-                errorEl.textContent = "Could not send feedback. Please try again later.";
-                errorEl.style.display = 'block';
+                errorEl.textContent = "Could not send feedback. Please try again later."; errorEl.style.display = 'block';
             }
         }
         
-        // --- All other functions (group management, etc.) are unchanged and included below ---
         function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
@@ -378,14 +397,11 @@
             document.getElementById('groups-btn').classList.remove('active');
             clearAllListeners('groupMembers');
             if (viewName === 'alerts') {
-                document.getElementById('alerts-view').classList.remove('hidden');
-                document.getElementById('alerts-btn').classList.add('active');
+                document.getElementById('alerts-view').classList.remove('hidden'); document.getElementById('alerts-btn').classList.add('active');
             } else if (viewName === 'groups') {
-                document.getElementById('groups-view').classList.remove('hidden');
-                document.getElementById('groups-btn').classList.add('active');
+                document.getElementById('groups-view').classList.remove('hidden'); document.getElementById('groups-btn').classList.add('active');
             } else if (viewName === 'group-detail') {
-                document.getElementById('group-detail-view').classList.remove('hidden');
-                document.getElementById('groups-btn').classList.add('active');
+                document.getElementById('group-detail-view').classList.remove('hidden'); document.getElementById('groups-btn').classList.add('active');
             }
         }
         function updateSafetyStatus(newStatus) {
@@ -395,9 +411,7 @@
             if (newStatus === 'Safe') {
                 const expirationDate = new Date(Date.now() + 4 * 60 * 60 * 1000);
                 updateData.statusExpiresAt = Timestamp.fromDate(expirationDate);
-            } else {
-                updateData.statusExpiresAt = null;
-            }
+            } else { updateData.statusExpiresAt = null; }
             updateDoc(userRef, updateData).catch(err => console.error("Error updating status:", err));
         }
         function formatTimeRemaining(expiryTimestamp) {
@@ -435,15 +449,8 @@
         }
         function shareGroupInvite(code) {
             const inviteUrl = `https://app.safekaba.com/?join-group=${code}`;
-            const shareData = {
-                title: 'SAFE ka ba? Group Invite', text: `Join my safety group on SAFE ka ba?`, url: inviteUrl,
-            };
-            if (navigator.share) {
-                navigator.share(shareData);
-            } else {
-                navigator.clipboard.writeText(inviteUrl);
-                alert("Invite link copied to clipboard!");
-            }
+            const shareData = { title: 'SAFE ka ba? Group Invite', text: `Join my safety group on SAFE ka ba?`, url: inviteUrl };
+            if (navigator.share) { navigator.share(shareData); } else { navigator.clipboard.writeText(inviteUrl); alert("Invite link copied to clipboard!"); }
         }
         async function joinGroup(prefilledCode = null) {
             const codeInput = prefilledCode || prompt("Enter the group code to join:");
@@ -631,14 +638,6 @@
                 if (interval >= 1) { return interval + " " + unit + (interval > 1 ? 's' : '') + " ago"; }
             }
             return "just now";
-        }
-        async function setupUserDocument(uid){
-            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
-            const userSnap = await getDoc(userRef);
-            if (!userSnap.exists()) {
-                const name = "User " + uid.substring(0, 5);
-                await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
-            }
         }
     </script>
 </body>
