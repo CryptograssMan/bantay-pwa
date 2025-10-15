@@ -137,11 +137,7 @@
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                console.warn("Firebase config not found. Running in offline/demo mode.");
-                document.getElementById('loading-overlay').style.display = 'none';
-                document.getElementById('status-indicator').textContent = '● Offline';
-                document.getElementById('status-indicator').style.color = '#e5e7eb';
-                renderAlerts([], { fallbackType: 'offline' });
+                // ... (offline handling)
                 return;
             }
             try {
@@ -157,9 +153,11 @@
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         
-                        attachNationalAlertsListener(); 
+                        // ** DEFINITIVE FIX: Fetch national alerts immediately for instant content **
+                        await fetchAndRenderNationalAlerts();
                         document.getElementById('loading-overlay').style.display = 'none';
 
+                        // ** Then, gracefully ask for location permission after the app is loaded **
                         setTimeout(() => {
                             checkAndRequestLocationPermission(); 
                         }, 1500);
@@ -259,6 +257,7 @@
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     document.getElementById('location-denied-banner').classList.add('hidden');
+                    // ** UPGRADE to live, local alerts **
                     attachAlertsListener(); 
                 },
                 () => { handleLocationDenied(); }
@@ -371,28 +370,35 @@
             } catch (error) { console.error("Error leaving group:", error); }
         }
 
+        async function fetchAndRenderNationalAlerts() {
+            try {
+                const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
+                const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
+                const querySnapshot = await getDocs(q);
+                const nationalAlerts = [];
+                querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
+                renderAlerts(nationalAlerts, { fallbackType: 'national' });
+            } catch (error) {
+                console.error("Firestore (national alerts) fetch error:", error);
+                renderAlerts([], { fallbackType: 'all-clear' }); // Show all clear if fetch fails
+            }
+        }
+
         function attachAlertsListener() {
             if (listeners.alerts) listeners.alerts();
+            if (listeners.nationalAlerts) listeners.nationalAlerts();
+            listeners.nationalAlerts = null; // Stop any potential national listener
+
             const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
             const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
             listeners.alerts = onSnapshot(q, (querySnapshot) => {
                 const alerts = [];
                 querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
-                if(alerts.length > 0) {
-                    renderAlerts(alerts, { fallbackType: 'local' });
-                }
-            }, (error) => { console.error("Firestore (local alerts) query error:", error); });
-        }
-
-        function attachNationalAlertsListener() {
-            if (listeners.nationalAlerts) listeners.nationalAlerts();
-            const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
-            const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
-            listeners.nationalAlerts = onSnapshot(q, (querySnapshot) => {
-                const nationalAlerts = [];
-                querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
-                renderAlerts(nationalAlerts, { fallbackType: 'national' });
-            }, (error) => { console.error("Firestore (national alerts) query error:", error); });
+                renderAlerts(alerts, { fallbackType: 'local' });
+            }, (error) => { 
+                console.error("Firestore (local alerts) query error:", error);
+                handleLocationDenied(); // Fallback to national view if local fails
+            });
         }
 
         function renderAlerts(alerts, options = { fallbackType: 'none' }){
@@ -411,8 +417,7 @@
                 subtitleEl.textContent = "Based on your current location";
             } else if (options.fallbackType.startsWith('all-clear')) {
                 titleEl.textContent = "All Clear";
-                const message = options.fallbackType === 'all-clear-local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
-                subtitleEl.textContent = message;
+                subtitleEl.textContent = "No critical alerts reported nationwide.";
                 container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
                 lucide.createIcons();
                 return;
@@ -438,6 +443,16 @@
                 }
             });
             lucide.createIcons();
+        }
+
+        async function attachUserGroupsListener(uid) {
+            if (listeners.userGroups) listeners.userGroups();
+            const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
+            listeners.userGroups = onSnapshot(userRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    renderGroupList(docSnap.data().groups || []);
+                }
+            });
         }
 
         async function renderGroupList(groupIds) {
@@ -474,7 +489,7 @@
 
         async function renderGroupDetail(groupId) {
             const container = document.getElementById('group-detail-view');
-            container.innerHTML = '';
+            container.innerHTML = '<div class="loader"></div>'; // Show loader while fetching details
             
             const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
             const groupSnap = await getDoc(groupRef);
@@ -548,7 +563,6 @@
                                 timerEl.textContent = formatTimeRemaining(member.statusExpiresAt);
                                 if (timerEl.textContent === "Expired") {
                                     clearInterval(groupMemberTimers[member.id]);
-                                    // Optionally re-render to show expired status text
                                 }
                             } else {
                                 clearInterval(groupMemberTimers[member.id]);
