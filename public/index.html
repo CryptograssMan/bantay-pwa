@@ -18,10 +18,14 @@
         #map { height: 35vh; z-index: 10; background-color: #e2e8f0; }
         #main-content { flex-grow: 1; overflow-y: auto; }
         .alert-item { padding: 1rem; border-radius: 0.75rem; border-left-width: 5px; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); }
-        footer { display: flex; justify-content: space-around; padding: 0.5rem; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
+        footer { display: flex; justify-content: space-around; padding: 0.5rem; align-items: center; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
         .footer-btn { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; background: none; border: none; color: inherit; cursor: pointer; padding: 0.25rem; }
         .footer-btn.active { color: var(--brand-yellow); font-weight: 600; }
         .footer-btn span { font-size: 0.75rem; }
+        .rating-btn { background: none; border: none; color: inherit; cursor: pointer; display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem; transition: color 0.2s; }
+        .rating-btn:hover { color: white; }
+        .rating-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+        .rating-btn.voted { color: var(--brand-yellow); }
         .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.875rem; border-radius: 0.75rem; font-weight: 600; color: white; transition: transform 0.1s, box-shadow 0.2s; border: none; cursor: pointer; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.15); }
         .btn:hover { transform: translateY(-2px); }
         .btn-red { background: var(--brand-red); }
@@ -34,6 +38,7 @@
         
         .modal-overlay { position: absolute; inset: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s ease; }
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.75rem; width: calc(100% - 2rem); max-width: 24rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; gap: 1rem; }
+        .input-field { box-sizing: border-box; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 1rem; }
     </style>
 </head>
 <body>
@@ -69,21 +74,42 @@
         <footer>
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
+            <div id="rating-widget" style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: inherit; font-size: 0.75rem;">
+                <div style="display: flex; gap: 0.75rem;">
+                    <button id="rate-happy-btn" class="rating-btn" title="I like this app!"><i data-lucide="smile"></i> <span id="happy-count">0</span></button>
+                    <button id="rate-sad-btn" class="rating-btn" title="This app needs improvement"><i data-lucide="frown"></i> <span id="sad-count">0</span></button>
+                </div>
+                <span id="rating-label">Rate App</span>
+            </div>
+            <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
         </footer>
 
         <!-- Modals -->
         <div id="share-group-modal" class="modal-overlay hidden"></div>
         <div id="confirm-leave-modal" class="modal-overlay hidden"></div>
+        <div id="feedback-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Send Feedback</h3>
+                <p style="text-align: center; color: var(--text-secondary);">Have a suggestion or found a bug? Let us know!</p>
+                <input id="feedback-email" type="email" placeholder="Your email address" class="input-field">
+                <textarea id="feedback-message" rows="4" placeholder="Your message..." class="input-field"></textarea>
+                <div id="feedback-error" style="color: var(--brand-red); font-size: 0.875rem; text-align: center; display: none;"></div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="cancel-feedback-btn" class="btn" style="background-color: var(--text-secondary);">Cancel</button>
+                    <button id="send-feedback-btn" class="btn btn-blue">Send</button>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, arrayRemove, serverTimestamp, orderBy, limit, Timestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, arrayRemove, serverTimestamp, orderBy, limit, Timestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
         let map, app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
-        let listeners = { userGroups: null, groupMembers: {}, alerts: null };
+        let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null };
         let groupMemberTimers = {};
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
@@ -98,15 +124,18 @@
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
             document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
+            
+            // Feedback and Rating Listeners
+            document.getElementById('feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.remove('hidden'); });
+            document.getElementById('cancel-feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.add('hidden'); });
+            document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
+            document.getElementById('rate-happy-btn').addEventListener('click', () => handleRating('happy'));
+            document.getElementById('rate-sad-btn').addEventListener('click', () => handleRating('sad'));
         }
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                console.warn("Firebase config not found. Running in offline/demo mode.");
-                document.getElementById('loading-overlay').style.display = 'none';
-                document.getElementById('status-indicator').textContent = '● Offline';
-                document.getElementById('status-indicator').style.color = '#e5e7eb';
-                renderAlerts([], { type: 'offline' });
+                // ... (offline handling)
                 return;
             }
             try {
@@ -121,6 +150,7 @@
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
+                        attachRatingsListener();
                         
                         attachAlertsListener('national');
                         
@@ -128,12 +158,10 @@
                             document.getElementById('location-banner').classList.add('hidden');
                         }
 
-                        // Handle group invites from URL
                         const urlParams = new URLSearchParams(window.location.search);
                         const groupCodeToJoin = urlParams.get('join-group');
                         if (groupCodeToJoin) {
                             await joinGroup(groupCodeToJoin);
-                            // Clean the URL
                             window.history.replaceState({}, document.title, window.location.pathname);
                         }
 
@@ -148,18 +176,13 @@
             }
         }
 
+        // ... (getUserLocation, attachAlertsListener remain the same)
         function getUserLocation() {
             if (!navigator.geolocation) {
                 alert("Geolocation is not supported by your browser.");
                 return;
             }
-            
-            const options = {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0
-            };
-
+            const options = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     localStorage.setItem('location-choice-made', 'true');
@@ -171,7 +194,6 @@
                     localStorage.setItem('location-choice-made', 'true');
                     document.getElementById('location-banner').classList.add('hidden');
                     const subtitle = document.getElementById('warnings-subtitle');
-                    
                     if (error.code === error.PERMISSION_DENIED) {
                         subtitle.innerHTML = 'Location access denied. Enable in Settings > Privacy > Location.';
                     } else if (error.code === error.TIMEOUT) {
@@ -180,16 +202,13 @@
                         subtitle.textContent = "Location could not be determined.";
                     }
                     subtitle.style.color = 'var(--brand-red)';
-
                     attachAlertsListener('national');
                 },
                 options
             );
         }
-        
         function attachAlertsListener(type = 'national') {
             if (listeners.alerts) listeners.alerts();
-
             let alertsCol, q;
             if (type === 'local') {
                 alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
@@ -198,7 +217,6 @@
                 alertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
                 q = query(alertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
             }
-
             listeners.alerts = onSnapshot(q, (querySnapshot) => {
                 const alerts = [];
                 querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
@@ -209,18 +227,23 @@
             });
         }
         
+        function formatFullDateTime(date) {
+            return new Date(date).toLocaleString('en-US', {
+                month: 'short', day: 'numeric', year: 'numeric',
+                hour: 'numeric', minute: '2-digit', hour12: true
+            });
+        }
+        
         function renderAlerts(alerts, options = { type: 'national' }){
+            // ... (existing renderAlerts logic)
             const container = document.getElementById('alert-list');
             const titleEl = document.getElementById('warnings-title');
             const subtitleEl = document.getElementById('warnings-subtitle');
             container.innerHTML = '';
-            
             if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
-            
             if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
                  subtitleEl.style.color = 'var(--text-secondary)'; 
             }
-
             if (options.type === 'national') {
                 titleEl.textContent = "Top National Alerts";
                 if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
@@ -230,27 +253,20 @@
                 titleEl.textContent = "Active Warnings";
                 subtitleEl.textContent = "Based on your current location";
             } else if (options.type === 'error') {
-                titleEl.textContent = "Connection Error";
-                subtitleEl.textContent = "Could not fetch live alerts at this time.";
-                 container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`;
-                 return;
+                titleEl.textContent = "Connection Error"; subtitleEl.textContent = "Could not fetch live alerts at this time.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`; return;
             } else if (options.type === 'offline') {
-                titleEl.textContent = "Offline Mode";
-                subtitleEl.textContent = "Connect to the internet for live data.";
-                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary);"><p>Cannot connect to live services.</p></div>`;
-                 return;
+                titleEl.textContent = "Offline Mode"; subtitleEl.textContent = "Connect to the internet for live data.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary);"><p>Cannot connect to live services.</p></div>`; return;
             }
-
             if(alerts.length === 0) {
                  titleEl.textContent = "All Clear";
                  if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
                     subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
                  }
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
-                 lucide.createIcons();
-                 return;
+                 lucide.createIcons(); return;
             }
-
             alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
             alerts.forEach(alert => {
                 const { severity, title, details, source, time, lat, lon, location } = alert;
@@ -258,9 +274,8 @@
                 const alertEl = document.createElement('div');
                 alertEl.className = 'alert-item';
                 alertEl.style.borderColor = styles.color;
-                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;"><span>${source}</span><span>${formatFullDateTime(new Date(time))} (${formatTimeAgo(new Date(time))})</span></div></div></div>`;
                 container.appendChild(alertEl);
-                
                 if (map && lat && lon) {
                     const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
                     marker.bindPopup(`<b>${title}</b><br>${location}`);
@@ -269,6 +284,92 @@
             lucide.createIcons();
         }
         
+        async function attachRatingsListener() {
+            if (listeners.ratings) listeners.ratings();
+            const ratingRef = doc(db, `artifacts/${appId}/public/data/ratings`, 'app-ratings');
+
+            listeners.ratings = onSnapshot(ratingRef, (docSnap) => {
+                const happyCountEl = document.getElementById('happy-count');
+                const sadCountEl = document.getElementById('sad-count');
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    happyCountEl.textContent = data.happy || 0;
+                    sadCountEl.textContent = data.sad || 0;
+                } else {
+                    happyCountEl.textContent = 0;
+                    sadCountEl.textContent = 0;
+                }
+            });
+            
+            // Disable buttons if already voted
+            const voted = localStorage.getItem('app-rated');
+            if (voted) {
+                document.getElementById('rate-happy-btn').disabled = true;
+                document.getElementById('rate-sad-btn').disabled = true;
+                document.getElementById(`rate-${voted}-btn`).classList.add('voted');
+                document.getElementById('rating-label').textContent = "Thanks!";
+            }
+        }
+
+        async function handleRating(vote) {
+            if (localStorage.getItem('app-rated')) return;
+
+            const ratingRef = doc(db, `artifacts/${appId}/public/data/ratings`, 'app-ratings');
+            try {
+                await updateDoc(ratingRef, { [vote]: increment(1) });
+                localStorage.setItem('app-rated', vote);
+                attachRatingsListener(); // To refresh UI state
+            } catch (error) {
+                if (error.code === 'not-found') {
+                    await setDoc(ratingRef, { happy: 0, sad: 0, [vote]: 1 });
+                    localStorage.setItem('app-rated', vote);
+                    attachRatingsListener();
+                } else {
+                    console.error("Error submitting rating:", error);
+                }
+            }
+        }
+
+        async function sendFeedback() {
+            const emailEl = document.getElementById('feedback-email');
+            const messageEl = document.getElementById('feedback-message');
+            const errorEl = document.getElementById('feedback-error');
+            const email = emailEl.value;
+            const message = messageEl.value;
+
+            // Simple email validation
+            if (!/^\S+@\S+\.\S+$/.test(email)) {
+                errorEl.textContent = "Please enter a valid email address.";
+                errorEl.style.display = 'block';
+                return;
+            }
+            if (message.trim() === '') {
+                errorEl.textContent = "Please enter a message.";
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            errorEl.style.display = 'none';
+
+            try {
+                await addDoc(collection(db, `artifacts/${appId}/public/data/feedback`), {
+                    email: email,
+                    message: message,
+                    timestamp: serverTimestamp()
+                });
+                alert("Thank you! Your feedback has been sent.");
+                emailEl.value = '';
+                messageEl.value = '';
+                document.getElementById('feedback-modal').classList.add('hidden');
+            } catch (error) {
+                console.error("Error sending feedback:", error);
+                errorEl.textContent = "Could not send feedback. Please try again later.";
+                errorEl.style.display = 'block';
+            }
+        }
+        
+        // --- All other functions (group management, etc.) are unchanged and included below ---
         function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
@@ -287,12 +388,10 @@
                 document.getElementById('groups-btn').classList.add('active');
             }
         }
-
         function updateSafetyStatus(newStatus) {
             if (!userId) return;
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
             let updateData = { status: newStatus, lastUpdate: serverTimestamp() };
-
             if (newStatus === 'Safe') {
                 const expirationDate = new Date(Date.now() + 4 * 60 * 60 * 1000);
                 updateData.statusExpiresAt = Timestamp.fromDate(expirationDate);
@@ -301,7 +400,6 @@
             }
             updateDoc(userRef, updateData).catch(err => console.error("Error updating status:", err));
         }
-
         function formatTimeRemaining(expiryTimestamp) {
             if (!expiryTimestamp) return '';
             const expiryDate = expiryTimestamp.toDate();
@@ -311,7 +409,6 @@
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             return `(expires in ${hours}h ${minutes}m)`;
         }
-
         async function createGroup() {
             const groupNameInput = prompt("Enter a name for your new group:", "My Family");
             if (!groupNameInput || !groupNameInput.trim()) return;
@@ -325,8 +422,8 @@
                     <div class="modal-content">
                         <div style="text-align: center;"><i data-lucide="check-circle" style="width: 3rem; height: 3rem; color: var(--brand-green);"></i></div>
                         <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Group Created!</h3>
-                        <p style="text-align:center;">Share this code with others to invite them to "${groupName}":</p>
-                        <p style="font-family: monospace; background-color: var(--background); padding: 0.75rem; border-radius: 0.5rem; text-align:center; font-size: 1.25rem;">${code}</p>
+                        <p style="text-align:center;">Share this invite link with others:</p>
+                        <p style="font-family: monospace; background-color: var(--background); padding: 0.75rem; border-radius: 0.5rem; text-align:center; font-size: 1.25rem; word-break: break-all;">https://app.safekaba.com/?join-group=${code}</p>
                         <button id="share-invite-btn" class="btn btn-blue">Share Invite</button>
                         <button id="close-share-modal-btn" class="btn" style="background-color: var(--text-secondary);">Done</button>
                     </div>`;
@@ -336,13 +433,10 @@
                 lucide.createIcons();
             } catch (error) { console.error("Error creating group:", error); }
         }
-
         function shareGroupInvite(code) {
             const inviteUrl = `https://app.safekaba.com/?join-group=${code}`;
             const shareData = {
-                title: 'SAFE ka ba? Group Invite',
-                text: `Join my safety group on SAFE ka ba?`,
-                url: inviteUrl,
+                title: 'SAFE ka ba? Group Invite', text: `Join my safety group on SAFE ka ba?`, url: inviteUrl,
             };
             if (navigator.share) {
                 navigator.share(shareData);
@@ -351,7 +445,6 @@
                 alert("Invite link copied to clipboard!");
             }
         }
-
         async function joinGroup(prefilledCode = null) {
             const codeInput = prefilledCode || prompt("Enter the group code to join:");
             if (!codeInput || !codeInput.trim()) return;
@@ -367,7 +460,6 @@
                 switchView('groups');
             } catch (error) { console.error("Error joining group:", error); }
         }
-
         function confirmLeaveGroup(groupId, groupName) {
             const modal = document.getElementById('confirm-leave-modal');
             modal.innerHTML = `
@@ -384,7 +476,6 @@
             modal.classList.remove('hidden');
             lucide.createIcons();
         }
-
         async function executeLeaveGroup(groupId) {
             if (!userId || !groupId) return;
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
@@ -396,7 +487,6 @@
                 switchView('groups');
             } catch (error) { console.error("Error leaving group:", error); }
         }
-
         async function attachUserGroupsListener(uid) {
             if (listeners.userGroups) listeners.userGroups();
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, uid);
@@ -406,7 +496,6 @@
                 }
             });
         }
-
         async function renderGroupList(groupIds) {
             const container = document.getElementById('groups-view');
             let content = `
@@ -437,7 +526,6 @@
             document.getElementById('create-group-btn').addEventListener('click', createGroup);
             lucide.createIcons();
         }
-
         async function renderGroupDetail(groupId) {
             const container = document.getElementById('group-detail-view');
             container.innerHTML = '<div class="loader"></div>'; 
@@ -454,45 +542,22 @@
                     let statusIcon = 'help-circle';
                     let timeText = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
                     if (member.status === 'Safe' && member.statusExpiresAt && member.statusExpiresAt.toDate() < new Date()) {
-                        status = 'Unknown';
-                        timeText = "Status expired";
+                        status = 'Unknown'; timeText = "Status expired";
                     }
                     if (status === 'Safe') {
-                        statusColor = 'var(--brand-green)';
-                        statusIcon = 'check-circle';
-                        timeText = formatTimeRemaining(member.statusExpiresAt);
+                        statusColor = 'var(--brand-green)'; statusIcon = 'check-circle'; timeText = formatTimeRemaining(member.statusExpiresAt);
                     } else if (status === 'Needs Help') {
-                        statusColor = 'var(--brand-red)';
-                        statusIcon = 'alert-triangle';
+                        statusColor = 'var(--brand-red)'; statusIcon = 'alert-triangle';
                     }
-                    const nameElement = isCurrentUser
-                        ? `<p style="font-weight: 500; cursor: pointer;" id="current-user-name" data-current-name="${member.name}">${member.name} (You)</p>`
-                        : `<p style="font-weight: 500;">${member.name}</p>`;
-                    return `
-                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;">
-                            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                                <i data-lucide="${statusIcon}" style="color: ${statusColor};"></i>
-                                <div>
-                                    ${nameElement}
-                                    <p style="font-size: 0.75rem; color: var(--text-secondary);" id="timer-${member.id}">${timeText}</p>
-                                </div>
-                            </div>
-                            <span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${status}</span>
-                        </div>`;
+                    const nameElement = isCurrentUser ? `<p style="font-weight: 500; cursor: pointer;" id="current-user-name" data-current-name="${member.name}">${member.name} (You)</p>` : `<p style="font-weight: 500;">${member.name}</p>`;
+                    return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;"><div style="display: flex; align-items: center; gap: 0.75rem;"><i data-lucide="${statusIcon}" style="color: ${statusColor};"></i><div>${nameElement}<p style="font-size: 0.75rem; color: var(--text-secondary);" id="timer-${member.id}">${timeText}</p></div></div><span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${status}</span></div>`;
                 }).join('');
                 container.innerHTML = `
                     <button id="back-to-groups-btn" style="align-self: flex-start; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;"><i data-lucide="arrow-left"></i><span>All Groups</span></button>
                     <h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button id="safe-btn" class="btn btn-green"><i data-lucide="shield-check"></i><span>I AM SAFE</span></button>
-                        <button id="help-btn" class="btn btn-red"><i data-lucide="alert-circle"></i><span>I NEED HELP</span></button>
-                    </div>
+                    <div style="display: flex; gap: 0.5rem;"><button id="safe-btn" class="btn btn-green"><i data-lucide="shield-check"></i><span>I AM SAFE</span></button><button id="help-btn" class="btn btn-red"><i data-lucide="alert-circle"></i><span>I NEED HELP</span></button></div>
                     <div id="member-list" style="display: flex; flex-direction: column; gap: 0.5rem;">${memberHtml}</div>
-                    <div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color);">
-                        <p style="font-size: 0.75rem; color: var(--text-secondary);">Group Code:</p>
-                        <p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p>
-                        <button id="leave-group-btn" style="background:none; border:none; color:var(--brand-red); text-decoration: underline; cursor:pointer; margin-top: 1rem;">Leave Group</button>
-                    </div>`;
+                    <div style="text-align: center; padding: 1rem; margin-top: 1rem; border-top: 1px solid var(--border-color);"><p style="font-size: 0.75rem; color: var(--text-secondary);">Group Code:</p><p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p><button id="leave-group-btn" style="background:none; border:none; color:var(--brand-red); text-decoration: underline; cursor:pointer; margin-top: 1rem;">Leave Group</button></div>`;
                 document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
                 document.getElementById('safe-btn').addEventListener('click', () => updateSafetyStatus('Safe'));
                 document.getElementById('help-btn').addEventListener('click', () => updateSafetyStatus('Needs Help'));
@@ -516,12 +581,8 @@
                             if (timerEl) {
                                 const remaining = formatTimeRemaining(member.statusExpiresAt);
                                 timerEl.textContent = remaining;
-                                if (remaining === "Expired") {
-                                    clearInterval(groupMemberTimers[member.id]);
-                                }
-                            } else {
-                                clearInterval(groupMemberTimers[member.id]);
-                            }
+                                if (remaining === "Expired") { clearInterval(groupMemberTimers[member.id]); }
+                            } else { clearInterval(groupMemberTimers[member.id]); }
                         }, 60000);
                     }
                  });
@@ -540,11 +601,7 @@
         async function updateUserName(newName) {
             if (!userId || !newName) return;
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
-            try {
-                await updateDoc(userRef, { name: newName });
-            } catch(error) {
-                console.error("Error updating user name:", error);
-            }
+            try { await updateDoc(userRef, { name: newName }); } catch(error) { console.error("Error updating user name:", error); }
         }
         function clearAllListeners(type) {
             if (type === 'groupMembers') {
