@@ -162,8 +162,18 @@
                     localStorage.setItem('location-choice-made', 'true');
                     document.getElementById('location-banner').classList.add('hidden');
                     const subtitle = document.getElementById('warnings-subtitle');
-                    subtitle.textContent = "Showing national alerts. Location could not be determined.";
+                    
+                    if (error.code === error.PERMISSION_DENIED) {
+                        subtitle.innerHTML = 'Location access denied. Enable in Settings > Privacy > Location.';
+                    } else if (error.code === error.TIMEOUT) {
+                        subtitle.textContent = "Location timed out. Please try again in an open area.";
+                    } else {
+                        subtitle.textContent = "Location could not be determined.";
+                    }
                     subtitle.style.color = 'var(--brand-red)';
+
+                    // ** DEFINITIVE FIX: Enforce fallback to national alerts on any error. **
+                    attachAlertsListener('national');
                 },
                 options
             );
@@ -199,11 +209,15 @@
             
             if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
             
-            subtitleEl.style.color = 'var(--text-secondary)'; // Reset color
+            if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
+                 subtitleEl.style.color = 'var(--text-secondary)'; 
+            }
 
             if (options.type === 'national') {
                 titleEl.textContent = "Top National Alerts";
-                subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+                if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
+                    subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+                }
             } else if (options.type === 'local') {
                 titleEl.textContent = "Active Warnings";
                 subtitleEl.textContent = "Based on your current location";
@@ -221,7 +235,9 @@
 
             if(alerts.length === 0) {
                  titleEl.textContent = "All Clear";
-                 subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+                 if (!subtitleEl.textContent.includes("denied") && !subtitleEl.textContent.includes("timed out") && !subtitleEl.textContent.includes("determined")) {
+                    subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+                 }
                  container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
                  lucide.createIcons();
                  return;
