@@ -78,18 +78,13 @@
             </div>
             <div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
             <div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
+            <div id="faq-view" class="hidden"></div>
         </div>
 
         <footer>
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
-            <div id="rating-widget" style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: inherit; font-size: 0.75rem;">
-                <div style="display: flex; gap: 0.75rem;">
-                    <button id="rate-happy-btn" class="rating-btn" title="I like this app!"><i data-lucide="smile"></i> <span id="happy-count">0</span></button>
-                    <button id="rate-sad-btn" class="rating-btn" title="This app needs improvement"><i data-lucide="frown"></i> <span id="sad-count">0</span></button>
-                </div>
-                <span id="rating-label">Rate App</span>
-            </div>
+            <button id="faq-btn" class="footer-btn"><i data-lucide="help-circle"></i><span>FAQ</span></button>
             <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
         </footer>
 
@@ -133,13 +128,14 @@
             initializeMap();
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
+            document.getElementById('faq-btn').addEventListener('click', () => switchView('faq'));
             document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
             
             document.getElementById('feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.remove('hidden'); });
             document.getElementById('cancel-feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.add('hidden'); });
             document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
-            document.getElementById('rate-happy-btn').addEventListener('click', () => handleRating('happy'));
-            document.getElementById('rate-sad-btn').addEventListener('click', () => handleRating('sad'));
+            
+            // Remove rating widget from static UI setup to handle it dynamically
             document.getElementById('dismiss-install-btn').addEventListener('click', () => {
                 document.getElementById('install-banner').classList.add('hidden');
                 localStorage.setItem('install-banner-dismissed', 'true');
@@ -382,6 +378,24 @@
         }
         
         async function attachRatingsListener() {
+            const footer = document.querySelector('footer');
+            const ratingWidgetHTML = `
+                <div id="rating-widget" style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: inherit; font-size: 0.75rem;">
+                    <div style="display: flex; gap: 0.75rem;">
+                        <button id="rate-happy-btn" class="rating-btn" title="I like this app!"><i data-lucide="smile"></i> <span id="happy-count">0</span></button>
+                        <button id="rate-sad-btn" class="rating-btn" title="This app needs improvement"><i data-lucide="frown"></i> <span id="sad-count">0</span></button>
+                    </div>
+                    <span id="rating-label">Rate App</span>
+                </div>`;
+            
+            const feedbackBtn = document.getElementById('feedback-btn');
+            feedbackBtn.insertAdjacentHTML('beforebegin', ratingWidgetHTML);
+            lucide.createIcons();
+
+            document.getElementById('rate-happy-btn').addEventListener('click', () => handleRating('happy'));
+            document.getElementById('rate-sad-btn').addEventListener('click', () => handleRating('sad'));
+
+
             if (listeners.ratings) listeners.ratings();
             const ratingRef = doc(db, `artifacts/${appId}/public/data/ratings`, 'app-ratings');
             listeners.ratings = onSnapshot(ratingRef, (docSnap) => {
@@ -395,6 +409,7 @@
                     happyCountEl.textContent = 0; sadCountEl.textContent = 0;
                 }
             });
+
             const voted = localStorage.getItem('app-rated');
             if (voted) {
                 document.getElementById('rate-happy-btn').disabled = true;
@@ -410,12 +425,11 @@
             try {
                 await updateDoc(ratingRef, { [vote]: increment(1) });
                 localStorage.setItem('app-rated', vote);
-                attachRatingsListener();
+                // No need to call attachRatingsListener, onSnapshot will handle it.
             } catch (error) {
                 if (error.code === 'not-found') {
                     await setDoc(ratingRef, { happy: 0, sad: 0, [vote]: 1 });
                     localStorage.setItem('app-rated', vote);
-                    attachRatingsListener();
                 } else { console.error("Error submitting rating:", error); }
             }
         }
@@ -445,19 +459,40 @@
             }
         }
         
-        function switchView(viewName) {
+        async function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
             document.getElementById('group-detail-view').classList.add('hidden');
+            document.getElementById('faq-view').classList.add('hidden');
+            
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
+            document.getElementById('faq-btn').classList.remove('active');
+
             clearAllListeners('groupMembers');
+
             if (viewName === 'alerts') {
-                document.getElementById('alerts-view').classList.remove('hidden'); document.getElementById('alerts-btn').classList.add('active');
+                document.getElementById('alerts-view').classList.remove('hidden'); 
+                document.getElementById('alerts-btn').classList.add('active');
             } else if (viewName === 'groups') {
-                document.getElementById('groups-view').classList.remove('hidden'); document.getElementById('groups-btn').classList.add('active');
+                document.getElementById('groups-view').classList.remove('hidden'); 
+                document.getElementById('groups-btn').classList.add('active');
             } else if (viewName === 'group-detail') {
-                document.getElementById('group-detail-view').classList.remove('hidden'); document.getElementById('groups-btn').classList.add('active');
+                document.getElementById('group-detail-view').classList.remove('hidden'); 
+                document.getElementById('groups-btn').classList.add('active');
+            } else if (viewName === 'faq') {
+                const faqView = document.getElementById('faq-view');
+                faqView.classList.remove('hidden');
+                document.getElementById('faq-btn').classList.add('active');
+                if(!faqView.innerHTML) { // Load only once
+                    try {
+                        const response = await fetch('faq.html');
+                        const text = await response.text();
+                        faqView.innerHTML = text;
+                    } catch(e) {
+                        faqView.innerHTML = `<p style="text-align:center; color: var(--brand-red); padding: 1rem;">Could not load FAQ.</p>`
+                    }
+                }
             }
         }
         function updateSafetyStatus(newStatus) {
@@ -647,7 +682,7 @@
                             if (timerEl) {
                                 const remaining = formatTimeRemaining(member.statusExpiresAt);
                                 timerEl.textContent = remaining;
-                                if (remaining === "Expired") { clearInterval(groupMemberTimimers[member.id]); }
+                                if (remaining === "Expired") { clearInterval(groupMemberTimers[member.id]); }
                             } else { clearInterval(groupMemberTimers[member.id]); }
                         }, 60000);
                     }
