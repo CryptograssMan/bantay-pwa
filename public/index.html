@@ -56,6 +56,10 @@
         </header>
 
         <div id="main-content">
+             <div id="install-banner" class="hidden" style="background-color: #dbeafe; color: #1e40af; padding: 0.75rem 1rem; font-size: 0.875rem; display: flex; justify-content: space-between; align-items: center;">
+                <span>For the best experience, add this app to your homescreen!</span>
+                <button id="dismiss-install-btn" style="background:none; border:none; color:inherit; cursor: pointer;"><i data-lucide="x" class="h-5 w-5"></i></button>
+            </div>
              <div id="alerts-view">
                 <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
                     Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
@@ -131,6 +135,10 @@
             document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
             document.getElementById('rate-happy-btn').addEventListener('click', () => handleRating('happy'));
             document.getElementById('rate-sad-btn').addEventListener('click', () => handleRating('sad'));
+            document.getElementById('dismiss-install-btn').addEventListener('click', () => {
+                document.getElementById('install-banner').classList.add('hidden');
+                localStorage.setItem('install-banner-dismissed', 'true');
+            });
         }
 
         async function initializeFirebase() {
@@ -149,16 +157,23 @@
                         document.getElementById('status-indicator').textContent = '● Live';
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
                         
+                        manageInstallBanner();
                         attachUserGroupsListener(userId);
                         attachRatingsListener();
-                        attachAlertsListener('national');
                         
                         if (localStorage.getItem('location-choice-made') === 'denied') {
                              document.getElementById('location-banner').classList.remove('hidden');
+                             const subtitle = document.getElementById('warnings-subtitle');
+                             subtitle.innerHTML = 'Location access denied. Showing national alerts.';
+                             subtitle.style.color = 'var(--brand-red)';
+                             attachAlertsListener('national');
                         } else if (localStorage.getItem('location-choice-made') === 'granted') {
                              document.getElementById('location-banner').classList.add('hidden');
+                             getUserLocation();
+                        } else {
+                             document.getElementById('location-banner').classList.remove('hidden');
+                             attachAlertsListener('national');
                         }
-
 
                         const urlParams = new URLSearchParams(window.location.search);
                         const groupCodeToJoin = urlParams.get('join-group');
@@ -175,6 +190,17 @@
             } catch (error) { 
                 console.error("Firebase Initialization Error:", error);
                 document.getElementById('loading-overlay').innerHTML = `<p style="color: red; text-align: center;">Firebase configuration error.<br>Please check deployment plan.</p>`;
+            }
+        }
+
+        function manageInstallBanner() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            const installBannerDismissed = localStorage.getItem('install-banner-dismissed');
+            const installBanner = document.getElementById('install-banner');
+
+            if (!isStandalone && !installBannerDismissed) {
+                installBanner.classList.remove('hidden');
+                lucide.createIcons();
             }
         }
 
