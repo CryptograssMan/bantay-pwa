@@ -8,53 +8,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SEO Meta Tags for Google & Web 2.0 Search -->
-<title>SAFE ka ba? | Free Disaster Alerts & Family Safety Status</title>
-<meta name="description" content="SAFE ka ba? is a free, anonymous safety app. Get real-time earthquake alerts for your location and instantly check the safety status of family and loved ones. No app download or registration required.">
-<meta name="keywords" content="free safety app, family safety status, employee safety check, disaster alerts Philippines, earthquake alerts PH, no download safety app, anonymous safety app, calamity watch, typhoon alerts, flood warnings, check on loved ones, earthquake philippines, earthquake philippines today, earthquake philippines now, earthquake philippines just now, earthquake philippines luzon, earthquake philippines visayas, earthquake philippines mindanao, earthquake philippines tsunami warning, earthquake today philippines, earthquake today philippines live, earthquake today philippines update, phivolcs earthquake update today, phivolcs earthquake update today philippines, phivolcs earthquake update today epicenter, phivolcs earthquake update live, lindol today, lindol now, lindol today philippines, lindol ngayon, lindol sa pilipinas, lindol safety, lindol safety tips, lindol safety app, earthquake safety app, earthquake safety app free, earthquake alert on my phone, earthquake alert google, earthquake alert in my location, earthquake alert app, my earthquake alerts">
 
-<!-- Open Graph / Facebook Meta Tags -->
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://app.safekaba.com/">
-<meta property="og:title" content="SAFE ka ba? | Free Disaster Alerts & Family Safety Status">
-<meta property="og:description" content="Instantly check the safety status of loved ones and get free, location-based disaster alerts. No app download or registration required.">
-<meta property="og:image" content="https://app.safekaba.com/assets/images/bantay-logo.svg">
-
-<!-- Twitter Meta Tags -->
-<meta property="twitter:card" content="summary_large_image">
-<meta property="twitter:url" content="https://app.safekaba.com/">
-<meta property="twitter:title" content="SAFE ka ba? | Free Disaster Alerts & Family Safety Status">
-<meta property="twitter:description" content="Instantly check the safety status of loved ones and get free, location-based disaster alerts. No app download or registration required.">
-<meta property="twitter:image" content="https://app.safekaba.com/assets/images/bantay-logo.svg">
-
-<!-- AI & Structured Data (JSON-LD for AI Search) -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  "name": "SAFE ka ba?",
-  "applicationCategory": "WeatherApplication",
-  "operatingSystem": "Any (Web App)",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "PHP"
-  },
-  "description": "A free, anonymous PWA for real-time disaster alerts and checking the safety status of loved ones and employees in the Philippines.",
-  "featureList": [
-    "Totally Free to Use",
-    "Family & Loved Ones Safety Status",
-    "Employee Safety Status Monitoring",
-    "No App Download Required (Progressive Web App)",
-    "Location-Based Alerts",
-    "Real-time Earthquake Alerts",
-    "Future Support for Typhoon and Flood Alerts",
-    "Completely Anonymous - No Phone/Email Registration",
-    "Simple, Reliable, and Effective"
-  ],
-  "keywords": "free safety app, family safety status, employee safety check, disaster alerts Philippines, earthquake alerts PH, no download safety app, anonymous safety app, calamity watch, typhoon alerts, flood warnings, check on loved ones, earthquake philippines, earthquake philippines today, earthquake philippines now, earthquake philippines just now, earthquake philippines luzon, earthquake philippines visayas, earthquake philippines mindanao, earthquake philippines tsunami warning, earthquake today philippines, earthquake today philippines live, earthquake today philippines update, phivolcs earthquake update today, phivolcs earthquake update today philippines, phivolcs earthquake update today epicenter, phivolcs earthquake update live, lindol today, lindol now, lindol today philippines, lindol ngayon, lindol sa pilipinas, lindol safety, lindol safety tips, lindol safety app, earthquake safety app, earthquake safety app free, earthquake alert on my phone, earthquake alert google, earthquake alert in my location, earthquake alert app, my earthquake alerts"
-}
-</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
         :root { --brand-blue: #0A2463; --brand-red: #D83121; --brand-yellow: #FFCB00; --brand-green: #22c55e; --background: #F7F7F7; --text-primary: #1E1E1E; --text-secondary: #6B7280; --border-color: #E5E7EB; }
@@ -80,10 +34,6 @@
         
         .modal-overlay { position: absolute; inset: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s ease; }
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.75rem; width: calc(100% - 2rem); max-width: 24rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; gap: 1rem; }
-        .modal-slide-up { align-items: flex-end; }
-        .modal-slide-up .modal-content { width: 100%; max-width: 100%; border-radius: 0.75rem 0.75rem 0 0; position: absolute; bottom: 0; animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        .input-field { box-sizing: border-box; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 1rem; }
     </style>
 </head>
 <body>
@@ -102,8 +52,8 @@
 
         <div id="main-content">
              <div id="alerts-view">
-                <div id="location-denied-banner" class="hidden" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.5rem 1rem; text-align: center; font-size: 0.875rem;">
-                    Location access denied. Showing national alerts. <button id="enable-location-banner-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer;">Enable</button>
+                <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
+                    Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
                 </div>
                 <div id="map"></div>
                 <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
@@ -122,14 +72,6 @@
         </footer>
 
         <!-- Modals -->
-        <div id="location-permission-modal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <div style="text-align: center;"><i data-lucide="map-pin" style="width: 3rem; height: 3rem; color: var(--brand-blue);"></i></div>
-                <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Enable Location</h3>
-                <p style="text-align: center; color: var(--text-secondary);">To provide relevant, life-saving alerts, "SAFE ka ba?" needs to know your approximate location. We will never share this data.</p>
-                <button id="enable-location-modal-btn" class="btn btn-blue">Enable Location</button>
-            </div>
-        </div>
         <div id="share-group-modal" class="modal-overlay hidden"></div>
         <div id="confirm-leave-modal" class="modal-overlay hidden"></div>
     </div>
@@ -141,7 +83,7 @@
         
         let map, app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
-        let listeners = { userGroups: null, groupMembers: {}, alerts: null, nationalAlerts: null };
+        let listeners = { userGroups: null, groupMembers: {}, alerts: null };
         let groupMemberTimers = {};
         const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
 
@@ -155,13 +97,16 @@
             initializeMap();
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
-            document.getElementById('enable-location-modal-btn').addEventListener('click', requestLocationPermission);
-            document.getElementById('enable-location-banner-btn').addEventListener('click', requestLocationPermission);
+            document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
         }
 
         async function initializeFirebase() {
             if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
-                // ... (offline handling as before)
+                console.warn("Firebase config not found. Running in offline/demo mode.");
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('status-indicator').textContent = '● Offline';
+                document.getElementById('status-indicator').style.color = '#e5e7eb';
+                renderAlerts([], { type: 'offline' });
                 return;
             }
             try {
@@ -177,13 +122,13 @@
                         await setupUserDocument(userId);
                         attachUserGroupsListener(userId);
                         
-                        await fetchAndRenderNationalAlerts();
+                        attachAlertsListener('national');
+                        
+                        if (localStorage.getItem('location-choice-made')) {
+                            document.getElementById('location-banner').classList.add('hidden');
+                        }
+
                         document.getElementById('loading-overlay').style.display = 'none';
-
-                        setTimeout(() => {
-                            checkAndRequestLocationPermission(); 
-                        }, 1500);
-
                     } else {
                         await signInAnonymously(auth);
                     }
@@ -194,15 +139,111 @@
             }
         }
 
+        function getUserLocation() {
+            if (!navigator.geolocation) {
+                alert("Geolocation is not supported by your browser.");
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    localStorage.setItem('location-choice-made', 'true');
+                    document.getElementById('location-banner').classList.add('hidden');
+                    attachAlertsListener('local'); 
+                },
+                () => {
+                    localStorage.setItem('location-choice-made', 'true');
+                    document.getElementById('location-banner').classList.add('hidden');
+                    const subtitle = document.getElementById('warnings-subtitle');
+                    subtitle.textContent = "Showing national alerts. Location was denied.";
+                    subtitle.style.color = 'var(--brand-red)';
+                }
+            );
+        }
+        
+        function attachAlertsListener(type = 'national') {
+            if (listeners.alerts) listeners.alerts();
+
+            let alertsCol, q;
+            if (type === 'local') {
+                alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
+                q = query(alertsCol, orderBy('time', 'desc'), limit(10));
+            } else {
+                alertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
+                q = query(alertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
+            }
+
+            listeners.alerts = onSnapshot(q, (querySnapshot) => {
+                const alerts = [];
+                querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
+                renderAlerts(alerts, { type: type });
+            }, (error) => { 
+                console.error(`Firestore (${type} alerts) query error:`, error);
+                renderAlerts([], { type: 'error' });
+            });
+        }
+        
+        function renderAlerts(alerts, options = { type: 'national' }){
+            const container = document.getElementById('alert-list');
+            const titleEl = document.getElementById('warnings-title');
+            const subtitleEl = document.getElementById('warnings-subtitle');
+            container.innerHTML = '';
+            
+            if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
+            
+            subtitleEl.style.color = 'var(--text-secondary)'; // Reset color
+
+            if (options.type === 'national') {
+                titleEl.textContent = "Top National Alerts";
+                subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
+            } else if (options.type === 'local') {
+                titleEl.textContent = "Active Warnings";
+                subtitleEl.textContent = "Based on your current location";
+            } else if (options.type === 'error') {
+                titleEl.textContent = "Connection Error";
+                subtitleEl.textContent = "Could not fetch live alerts at this time.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--brand-red);"><p>There was a problem connecting to the live alert feed.</p></div>`;
+                 return;
+            } else if (options.type === 'offline') {
+                titleEl.textContent = "Offline Mode";
+                subtitleEl.textContent = "Connect to the internet for live data.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary);"><p>Cannot connect to live services.</p></div>`;
+                 return;
+            }
+
+            if(alerts.length === 0) {
+                 titleEl.textContent = "All Clear";
+                 subtitleEl.textContent = options.type === 'local' ? "No critical alerts reported in your area." : "No critical alerts reported nationwide.";
+                 container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
+                 lucide.createIcons();
+                 return;
+            }
+
+            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
+            alerts.forEach(alert => {
+                const { severity, title, details, source, time, lat, lon, location } = alert;
+                const styles = getAlertStyles(severity);
+                const alertEl = document.createElement('div');
+                alertEl.className = 'alert-item';
+                alertEl.style.borderColor = styles.color;
+                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
+                container.appendChild(alertEl);
+                
+                if (map && lat && lon) {
+                    const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
+                    marker.bindPopup(`<b>${title}</b><br>${location}`);
+                }
+            });
+            lucide.createIcons();
+        }
+        
         function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
             document.getElementById('group-detail-view').classList.add('hidden');
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
-            
             clearAllListeners('groupMembers');
-
             if (viewName === 'alerts') {
                 document.getElementById('alerts-view').classList.remove('hidden');
                 document.getElementById('alerts-btn').classList.add('active');
@@ -213,54 +254,6 @@
                 document.getElementById('group-detail-view').classList.remove('hidden');
                 document.getElementById('groups-btn').classList.add('active');
             }
-        }
-
-        function toggleModal(modalId, show) {
-            const modal = document.getElementById(modalId);
-            if (show) {
-                modal.classList.remove('hidden');
-                lucide.createIcons();
-            } else {
-                modal.classList.add('hidden');
-            }
-        }
-        
-        async function checkAndRequestLocationPermission() {
-            if (!navigator.geolocation) {
-                document.getElementById('warnings-subtitle').textContent = 'Location not supported.';
-                return;
-            }
-            try {
-                const permission = await navigator.permissions.query({ name: 'geolocation' });
-                if (permission.state === 'granted') {
-                    getUserLocation();
-                } else if (permission.state === 'prompt') {
-                    toggleModal('location-permission-modal', true);
-                } else {
-                    handleLocationDenied();
-                }
-            } catch (error) {
-                getUserLocation();
-            }
-        }
-        
-        function handleLocationDenied() {
-            document.getElementById('location-denied-banner').classList.remove('hidden');
-        }
-
-        function requestLocationPermission() {
-            toggleModal('location-permission-modal', false);
-            getUserLocation();
-        }
-
-        function getUserLocation() {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    document.getElementById('location-denied-banner').classList.add('hidden');
-                    attachAlertsListener(); 
-                },
-                () => { handleLocationDenied(); }
-            );
         }
 
         function updateSafetyStatus(newStatus) {
@@ -276,7 +269,7 @@
             }
             updateDoc(userRef, updateData).catch(err => console.error("Error updating status:", err));
         }
-        
+
         function formatTimeRemaining(expiryTimestamp) {
             if (!expiryTimestamp) return '';
             const expiryDate = expiryTimestamp.toDate();
@@ -295,7 +288,6 @@
             try {
                 const groupDocRef = await addDoc(collection(db, `artifacts/${appId}/public/data/groups`), { name: groupName, code: code, members: [userId] });
                 await updateDoc(doc(db, `artifacts/${appId}/public/data/users`, userId), { groups: arrayUnion(groupDocRef.id) });
-                
                 const modal = document.getElementById('share-group-modal');
                 modal.innerHTML = `
                     <div class="modal-content">
@@ -307,9 +299,9 @@
                         <button id="close-share-modal-btn" class="btn" style="background-color: var(--text-secondary);">Done</button>
                     </div>`;
                 document.getElementById('share-invite-btn').onclick = () => shareGroupInvite(code);
-                document.getElementById('close-share-modal-btn').onclick = () => toggleModal('share-group-modal', false);
-                toggleModal('share-group-modal', true);
-
+                document.getElementById('close-share-modal-btn').onclick = () => { modal.classList.add('hidden'); };
+                modal.classList.remove('hidden');
+                lucide.createIcons();
             } catch (error) { console.error("Error creating group:", error); }
         }
 
@@ -346,15 +338,16 @@
             modal.innerHTML = `
                 <div class="modal-content">
                     <h3 style="text-align: center; font-size: 1.25rem; font-weight: 700;">Leave Group</h3>
-                    <p style="text-align: center; color: var(--text-secondary);">Are you sure you want to leave "${groupName}"? You will no longer see their status updates.</p>
+                    <p style="text-align: center; color: var(--text-secondary);">Are you sure you want to leave "${groupName}"?</p>
                     <div style="display: flex; gap: 0.5rem;">
                         <button id="cancel-leave-btn" class="btn" style="background-color: var(--text-secondary);">Cancel</button>
                         <button id="confirm-leave-btn" class="btn btn-red">Leave</button>
                     </div>
                 </div>`;
-            document.getElementById('cancel-leave-btn').onclick = () => toggleModal('confirm-leave-modal', false);
+            document.getElementById('cancel-leave-btn').onclick = () => { modal.classList.add('hidden'); };
             document.getElementById('confirm-leave-btn').onclick = () => executeLeaveGroup(groupId);
-            toggleModal('confirm-leave-modal', true);
+            modal.classList.remove('hidden');
+            lucide.createIcons();
         }
 
         async function executeLeaveGroup(groupId) {
@@ -364,84 +357,9 @@
             try {
                 await updateDoc(userRef, { groups: arrayRemove(groupId) });
                 await updateDoc(groupRef, { members: arrayRemove(userId) });
-                toggleModal('confirm-leave-modal', false);
+                document.getElementById('confirm-leave-modal').classList.add('hidden');
                 switchView('groups');
             } catch (error) { console.error("Error leaving group:", error); }
-        }
-
-        async function fetchAndRenderNationalAlerts() {
-            try {
-                const nationalAlertsCol = collection(db, `artifacts/${appId}/public/data/national-alerts`);
-                const q = query(nationalAlertsCol, orderBy('severity', 'asc'), orderBy('time', 'desc'), limit(5));
-                const querySnapshot = await getDocs(q);
-                const nationalAlerts = [];
-                querySnapshot.forEach((doc) => nationalAlerts.push({ id: doc.id, ...doc.data() }));
-                renderAlerts(nationalAlerts, { fallbackType: 'national' });
-            } catch (error) {
-                console.error("Firestore (national alerts) fetch error:", error);
-                renderAlerts([], { fallbackType: 'all-clear' });
-            }
-        }
-
-        function attachAlertsListener() {
-            if (listeners.alerts) listeners.alerts();
-            if (listeners.nationalAlerts) listeners.nationalAlerts();
-            listeners.nationalAlerts = null; 
-
-            const alertsCol = collection(db, `artifacts/${appId}/public/data/live-alerts`);
-            const q = query(alertsCol, orderBy('time', 'desc'), limit(10));
-            listeners.alerts = onSnapshot(q, (querySnapshot) => {
-                const alerts = [];
-                querySnapshot.forEach((doc) => alerts.push({ id: doc.id, ...doc.data() }));
-                renderAlerts(alerts, { fallbackType: 'local' });
-            }, (error) => { 
-                console.error("Firestore (local alerts) query error:", error);
-                handleLocationDenied();
-            });
-        }
-
-        function renderAlerts(alerts, options = { fallbackType: 'none' }){
-            const container = document.getElementById('alert-list');
-            const titleEl = document.getElementById('warnings-title');
-            const subtitleEl = document.getElementById('warnings-subtitle');
-            container.innerHTML = '';
-            
-            if (map) map.eachLayer(layer => { if (layer instanceof L.CircleMarker) map.removeLayer(layer); });
-
-            if (options.fallbackType === 'national') {
-                titleEl.textContent = "Top National Alerts";
-                subtitleEl.textContent = "Most critical warnings across the Philippines right now.";
-            } else if (options.fallbackType === 'local') {
-                titleEl.textContent = "Active Warnings";
-                subtitleEl.textContent = "Based on your current location";
-            } else if (options.fallbackType.startsWith('all-clear')) {
-                titleEl.textContent = "All Clear";
-                subtitleEl.textContent = "No critical alerts reported nationwide.";
-                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); display: flex; flex-direction: column; align-items: center;"><i data-lucide="check-circle-2" style="width: 3rem; height: 3rem;"></i><p style="margin-top: 1rem; color: var(--text-primary);">The system is live and no severe threats are active.</p></div>`;
-                lucide.createIcons();
-                return;
-            } else if (options.fallbackType === 'offline') {
-                titleEl.textContent = "Offline Mode";
-                subtitleEl.textContent = "Connect to the internet for live data.";
-                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>Cannot connect to live services.</p></div>`;
-            }
-
-            alerts.sort((a,b) => new Date(b.time) - new Date(a.time));
-            alerts.forEach(alert => {
-                const { severity, title, details, source, time, lat, lon, location } = alert;
-                const styles = getAlertStyles(severity);
-                const alertEl = document.createElement('div');
-                alertEl.className = 'alert-item';
-                alertEl.style.borderColor = styles.color;
-                alertEl.innerHTML = `<div style="display:flex; align-items:flex-start; gap: 0.75rem;"><div style="width: 1.5rem; height: 1.5rem; color: ${styles.color}; flex-shrink: 0;"><i data-lucide="${styles.icon}"></i></div><div><h3 style="font-weight: 600; color: var(--text-primary);">${title} <span style="color: var(--text-secondary); font-weight: 400;">- ${location}</span></h3><p style="font-size: 0.875rem; color: #475569;">${details}</p><div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.5rem; display: flex; align-items: center; gap: 1rem;"><span>${source}</span><span>${formatTimeAgo(new Date(time))}</span></div></div></div>`;
-                container.appendChild(alertEl);
-                
-                if (map && lat && lon) {
-                    const marker = L.circleMarker([lat, lon], { radius: 8, color: styles.color, fillColor: styles.color, fillOpacity: 0.7 }).addTo(map);
-                    marker.bindPopup(`<b>${title}</b><br>${location}`);
-                }
-            });
-            lucide.createIcons();
         }
 
         async function attachUserGroupsListener(uid) {
@@ -464,7 +382,6 @@
                 </div>
                 <div id="group-list-items" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>`;
             container.innerHTML = content;
-
             const listContainer = document.getElementById('group-list-items');
             if (groupIds.length === 0) {
                 listContainer.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><p>You haven't joined any groups yet.</p></div>`;
@@ -489,14 +406,11 @@
         async function renderGroupDetail(groupId) {
             const container = document.getElementById('group-detail-view');
             container.innerHTML = '<div class="loader"></div>'; 
-            
             const groupRef = doc(db, `artifacts/${appId}/public/data/groups`, groupId);
             const groupSnap = await getDoc(groupRef);
             if (!groupSnap.exists()) return;
-
             const group = { id: groupSnap.id, ...groupSnap.data() };
             const memberStatuses = {};
-
             const updateUI = () => {
                 let memberHtml = Object.values(memberStatuses).sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(member => {
                     const isCurrentUser = member.id === userId;
@@ -504,12 +418,10 @@
                     let statusColor = 'var(--text-secondary)';
                     let statusIcon = 'help-circle';
                     let timeText = member.lastUpdate ? formatTimeAgo(member.lastUpdate.toDate()) : 'Never';
-                    
                     if (member.status === 'Safe' && member.statusExpiresAt && member.statusExpiresAt.toDate() < new Date()) {
                         status = 'Unknown';
                         timeText = "Status expired";
                     }
-
                     if (status === 'Safe') {
                         statusColor = 'var(--brand-green)';
                         statusIcon = 'check-circle';
@@ -518,11 +430,9 @@
                         statusColor = 'var(--brand-red)';
                         statusIcon = 'alert-triangle';
                     }
-                    
                     const nameElement = isCurrentUser
                         ? `<p style="font-weight: 500; cursor: pointer;" id="current-user-name" data-current-name="${member.name}">${member.name} (You)</p>`
                         : `<p style="font-weight: 500;">${member.name}</p>`;
-
                     return `
                         <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; background-color: white; box-shadow: 0 2px 4px 0 rgba(0,0,0,0.05); border-radius: 0.75rem;">
                             <div style="display: flex; align-items: center; gap: 0.75rem;">
@@ -535,7 +445,6 @@
                             <span style="font-size: 0.875rem; font-weight: 600; color: ${statusColor};">${status}</span>
                         </div>`;
                 }).join('');
-
                 container.innerHTML = `
                     <button id="back-to-groups-btn" style="align-self: flex-start; display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); background: none; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 500;"><i data-lucide="arrow-left"></i><span>All Groups</span></button>
                     <h3 style="font-size: 1.25rem; font-weight: 700;">${group.name}</h3>
@@ -549,12 +458,10 @@
                         <p style="font-family: monospace; background-color: #f1f5f9; color: #475569; padding: 0.5rem; border-radius: 0.375rem; margin-top: 0.25rem;">${group.code}</p>
                         <button id="leave-group-btn" style="background:none; border:none; color:var(--brand-red); text-decoration: underline; cursor:pointer; margin-top: 1rem;">Leave Group</button>
                     </div>`;
-                
                 document.getElementById('back-to-groups-btn').addEventListener('click', () => switchView('groups'));
                 document.getElementById('safe-btn').addEventListener('click', () => updateSafetyStatus('Safe'));
                 document.getElementById('help-btn').addEventListener('click', () => updateSafetyStatus('Needs Help'));
                 document.getElementById('leave-group-btn').addEventListener('click', () => confirmLeaveGroup(group.id, group.name));
-                
                 const currentUserNameEl = document.getElementById('current-user-name');
                 if(currentUserNameEl) {
                     currentUserNameEl.addEventListener('dblclick', () => {
@@ -565,9 +472,7 @@
                         }
                     });
                 }
-
                 lucide.createIcons();
-                
                  Object.values(memberStatuses).forEach(member => {
                     if (member.status === 'Safe' && member.statusExpiresAt) {
                         if (groupMemberTimers[member.id]) clearInterval(groupMemberTimers[member.id]);
@@ -578,7 +483,6 @@
                                 timerEl.textContent = remaining;
                                 if (remaining === "Expired") {
                                     clearInterval(groupMemberTimers[member.id]);
-                                    // Could re-render the whole UI here if needed
                                 }
                             } else {
                                 clearInterval(groupMemberTimers[member.id]);
@@ -587,7 +491,6 @@
                     }
                  });
             };
-
             clearAllListeners('groupMembers');
             group.members.forEach(memberId => {
                 const memberRef = doc(db, `artifacts/${appId}/public/data/users`, memberId);
@@ -599,7 +502,6 @@
                 });
             });
         }
-        
         async function updateUserName(newName) {
             if (!userId || !newName) return;
             const userRef = doc(db, `artifacts/${appId}/public/data/users`, userId);
@@ -609,7 +511,6 @@
                 console.error("Error updating user name:", error);
             }
         }
-
         function clearAllListeners(type) {
             if (type === 'groupMembers') {
                 Object.values(listeners.groupMembers).forEach(unsub => unsub());
@@ -618,7 +519,6 @@
                 groupMemberTimers = {};
             }
         }
-
         function initializeMap(){
             map = L.map('map').setView([12.8797, 121.7740], 6);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
@@ -648,7 +548,6 @@
                 await setDoc(userRef, { name: name, status: 'Unknown', lastUpdate: null, groups: [] });
             }
         }
-
     </script>
 </body>
 </html>
