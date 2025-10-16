@@ -52,8 +52,9 @@
                 <img src="/assets/images/bantay-logo.svg" alt="SAFE ka ba? Logo" style="height: 40px; width: auto; flex-shrink: 0;">
                 <span style="font-weight: 700; color: var(--brand-yellow); text-transform: uppercase;">SAFE KA BA?</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
+                <button id="header-faq-btn" style="background:none; border:none; color:white; cursor:pointer; padding:0.25rem;"><i data-lucide="help-circle"></i></button>
             </div>
         </header>
 
@@ -84,7 +85,6 @@
         <footer>
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
-            <button id="faq-btn" class="footer-btn"><i data-lucide="help-circle"></i><span>FAQ</span></button>
             <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
         </footer>
 
@@ -128,7 +128,7 @@
             initializeMap();
             document.getElementById('alerts-btn').addEventListener('click', () => switchView('alerts'));
             document.getElementById('groups-btn').addEventListener('click', () => switchView('groups'));
-            document.getElementById('faq-btn').addEventListener('click', () => switchView('faq'));
+            document.getElementById('header-faq-btn').addEventListener('click', () => switchView('faq'));
             document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
             
             document.getElementById('feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.remove('hidden'); });
@@ -467,7 +467,6 @@
             
             document.getElementById('alerts-btn').classList.remove('active');
             document.getElementById('groups-btn').classList.remove('active');
-            document.getElementById('faq-btn').classList.remove('active');
 
             clearAllListeners('groupMembers');
 
@@ -483,7 +482,6 @@
             } else if (viewName === 'faq') {
                 const faqView = document.getElementById('faq-view');
                 faqView.classList.remove('hidden');
-                document.getElementById('faq-btn').classList.add('active');
                 if(!faqView.innerHTML) { // Load only once
                     try {
                         const response = await fetch('faq.html');
