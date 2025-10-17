@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Backup Utility - SAFE ka ba?</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
+        :root { --brand-blue: #0A2463; --brand-red: #D83121; --brand-yellow: #ca8a04; --background: #F7F7F7; --text-primary: #1E1E1E; --text-secondary: #6B7280; --border-color: #E5E7EB; }
+        body { font-family: 'Rubik', sans-serif; background-color: var(--background); color: var(--text-primary); margin: 0; padding: 2rem; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        .container { max-width: 40rem; width: 100%; background-color: white; padding: 2rem; border-radius: 0.75rem; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        h1 { color: var(--brand-blue); text-align: center; }
+        p { color: var(--text-secondary); text-align: center; }
+        .btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.875rem; border-radius: 0.75rem; font-weight: 600; color: white; transition: background-color 0.2s; border: none; cursor: pointer; margin-top: 1rem; }
+        .btn-blue { background-color: #1E40AF; }
+        .btn-green { background-color: #15803d; }
+        .btn-yellow { background-color: var(--brand-yellow); }
+        .btn:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        #status { text-align: center; margin-top: 1.5rem; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Offline Backup Utility</h1>
+        <p>This tool allows you to download all user data and application code from Firestore directly to your computer.</p>
+        
+        <div id="auth-view">
+            <p>Please sign in to continue.</p>
+        </div>
+
+        <div id="backup-view" style="display: none;">
+            <button id="backup-users-btn" class="btn btn-blue" disabled><i data-lucide="users"></i><span>Backup All Users</span></button>
+            <button id="backup-groups-btn" class="btn btn-blue" disabled><i data-lucide="shield"></i><span>Backup All Groups</span></button>
+            <button id="backup-feedback-btn" class="btn btn-yellow" disabled><i data-lucide="message-square"></i><span>Backup User Feedback</span></button>
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+            <button id="backup-code-btn" class="btn btn-green" disabled><i data-lucide="file-code"></i><span>Backup App Code</span></button>
+        </div>
+
+        <div id="status">Initializing...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__"; 
+        const appId = 'bantay-pwa-live';
+        let db, auth;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) {
+                updateStatus('Firebase config not found. Please deploy the app first.', 'error');
+                return;
+            }
+            try {
+                const firebaseConfig = JSON.parse(atob(firebaseConfigB64).trim());
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                handleAuthentication();
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                updateStatus('Error initializing Firebase.', 'error');
+            }
+        });
+
+        function handleAuthentication() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    updateStatus('Checking admin privileges...');
+                    const userRef = doc(db, `artifacts/${appId}/public/data/users`, user.uid);
+                    try {
+                        const userSnap = await getDoc(userRef);
+                        if (userSnap.exists() && userSnap.data().isAdmin === true) {
+                            document.getElementById('auth-view').style.display = 'none';
+                            document.getElementById('backup-view').style.display = 'block';
+                            const usersBtn = document.getElementById('backup-users-btn');
+                            const groupsBtn = document.getElementById('backup-groups-btn');
+                            const feedbackBtn = document.getElementById('backup-feedback-btn');
+                            const codeBtn = document.getElementById('backup-code-btn');
+                            
+                            usersBtn.disabled = false;
+                            groupsBtn.disabled = false;
+                            feedbackBtn.disabled = false;
+                            codeBtn.disabled = false;
+
+                            usersBtn.onclick = () => downloadCollection('users');
+                            groupsBtn.onclick = () => downloadCollection('groups');
+                            feedbackBtn.onclick = () => downloadCollection('feedback');
+                            codeBtn.onclick = () => downloadAppCode();
+
+                            updateStatus(`Admin access granted. Ready to backup.`, 'success');
+                             lucide.createIcons();
+                        } else {
+                            updateStatus('Access Denied. You are not an admin.', 'error');
+                        }
+                    } catch (error) {
+                         console.error("Admin check failed:", error);
+                         updateStatus('Failed to verify admin status.', 'error');
+                    }
+                } else {
+                    updateStatus('Not signed in. Authenticating...');
+                    await signInAnonymously(auth);
+                }
+            });
+        }
+
+        async function downloadCollection(collectionName) {
+            const button = document.getElementById(`backup-${collectionName}-btn`);
+            button.disabled = true;
+            button.innerHTML = '<span>Loading...</span>';
+            updateStatus(`Fetching ${collectionName} data...`, 'loading');
+
+            try {
+                const collectionRef = collection(db, `artifacts/${appId}/public/data/${collectionName}`);
+                const querySnapshot = await getDocs(collectionRef);
+                const data = {};
+                querySnapshot.forEach(doc => {
+                    data[doc.id] = doc.data();
+                });
+
+                const jsonString = JSON.stringify(data, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const date = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `${collectionName}-backup-${date}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus(`${collectionName} backup successful!`, 'success');
+
+            } catch (error) {
+                console.error(`Error backing up ${collectionName}:`, error);
+                updateStatus(`Error backing up ${collectionName}. Check console.`, 'error');
+            } finally {
+                button.disabled = false;
+                let icon = 'file';
+                if(collectionName === 'users') icon = 'users';
+                if(collectionName === 'groups') icon = 'shield';
+                if(collectionName === 'feedback') icon = 'message-square';
+
+                button.innerHTML = `<i data-lucide="${icon}"></i><span>Backup All ${collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}</span>`;
+                lucide.createIcons();
+            }
+        }
+
+        async function downloadAppCode() {
+            const button = document.getElementById('backup-code-btn');
+            button.disabled = true;
+            button.innerHTML = '<span>Zipping files...</span>';
+            updateStatus('Fetching source code...', 'loading');
+
+            const filesToBackup = [
+                'index.html',
+                'faq.html',
+                'admin.html',
+                'firestore.rules',
+                'manifest.json',
+                'assets/images/bantay-logo.svg'
+            ];
+
+            try {
+                const zip = new JSZip();
+                const fetchPromises = filesToBackup.map(file => 
+                    fetch(file)
+                        .then(response => {
+                            if (!response.ok) throw new Error(`Failed to fetch ${file}`);
+                            return response.blob();
+                        })
+                        .then(blob => zip.file(file, blob))
+                );
+                
+                await Promise.all(fetchPromises);
+
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+                const url = URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                const date = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `safekaba-code-backup-${date}.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                updateStatus('App code backup successful!', 'success');
+
+            } catch (error) {
+                 console.error("Error backing up app code:", error);
+                 updateStatus(`Error backing up code. Check console.`, 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `<i data-lucide="file-code"></i><span>Backup App Code</span>`;
+                lucide.createIcons();
+            }
+        }
+
+
+        function updateStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.style.color = type === 'error' ? 'var(--brand-red)' : type === 'success' ? '#16a34a' : 'var(--text-secondary)';
+        }
+    </script>
+</body>
+</html>
+
