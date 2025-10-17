@@ -20,7 +20,7 @@
         #map { height: 35vh; z-index: 10; background-color: #e2e8f0; }
         #main-content { flex-grow: 1; overflow-y: auto; }
         .alert-item { padding: 1rem; border-radius: 0.75rem; border-left-width: 5px; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); }
-        footer { display: flex; justify-content: space-around; padding: 0.5rem; align-items: center; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
+        footer { position: relative; display: flex; justify-content: space-around; padding: 0.5rem; align-items: center; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
         .footer-btn { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; background: none; border: none; color: inherit; cursor: pointer; padding: 0.25rem; }
         .footer-btn.active { color: var(--brand-yellow); font-weight: 600; }
         .footer-btn span { font-size: 0.75rem; }
@@ -89,6 +89,7 @@
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
             <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
+            <div style="position: absolute; bottom: 2px; right: 8px; font-size: 0.625rem; color: rgba(255,255,255,0.4);">v10.8</div>
         </footer>
 
         <!-- Modals -->
@@ -209,7 +210,7 @@
         }
         
         function manageFaqNotification() {
-            const FAQ_UPDATE_KEY = 'faq-update-seen-v10.6'; 
+            const FAQ_UPDATE_KEY = 'faq-update-seen-v10.8'; 
             const faqDot = document.getElementById('faq-notification-dot');
             if (!localStorage.getItem(FAQ_UPDATE_KEY)) {
                 faqDot.classList.remove('hidden');
@@ -492,7 +493,7 @@
                 document.getElementById('groups-btn').classList.add('active');
             } else if (viewName === 'faq') {
                 const faqView = document.getElementById('faq-view');
-                const FAQ_UPDATE_KEY = 'faq-update-seen-v10.6';
+                const FAQ_UPDATE_KEY = 'faq-update-seen-v10.8';
                 document.getElementById('faq-notification-dot').classList.add('hidden');
                 localStorage.setItem(FAQ_UPDATE_KEY, 'true');
                 
