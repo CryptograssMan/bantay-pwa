@@ -54,7 +54,10 @@
             </div>
             <div style="display: flex; align-items: center; gap: 0.75rem;">
                 <span id="status-indicator" style="font-size: 0.75rem; font-weight: 600; color: #d1d5db;">● Connecting...</span>
-                <button id="header-faq-btn" style="background:none; border:none; color:white; cursor:pointer; padding:0.25rem;"><i data-lucide="help-circle"></i></button>
+                <button id="header-faq-btn" style="background:none; border:none; color:white; cursor:pointer; padding:0.25rem; position: relative;">
+                    <i data-lucide="help-circle"></i>
+                    <span id="faq-notification-dot" class="hidden" style="position: absolute; top: 0; right: 0; width: 8px; height: 8px; background-color: var(--brand-red); border-radius: 50%; border: 1px solid var(--brand-blue);"></span>
+                </button>
             </div>
         </header>
 
@@ -135,7 +138,6 @@
             document.getElementById('cancel-feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.add('hidden'); });
             document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
             
-            // Remove rating widget from static UI setup to handle it dynamically
             document.getElementById('dismiss-install-btn').addEventListener('click', () => {
                 document.getElementById('install-banner').classList.add('hidden');
                 localStorage.setItem('install-banner-dismissed', 'true');
@@ -159,6 +161,7 @@
                         document.getElementById('status-indicator').style.color = 'var(--brand-green)';
                         
                         manageInstallBanner();
+                        manageFaqNotification();
                         attachUserGroupsListener(userId);
                         attachRatingsListener();
                         
@@ -202,6 +205,14 @@
             if (!isStandalone && !installBannerDismissed) {
                 installBanner.classList.remove('hidden');
                 lucide.createIcons();
+            }
+        }
+        
+        function manageFaqNotification() {
+            const FAQ_UPDATE_KEY = 'faq-update-seen-v10.6'; 
+            const faqDot = document.getElementById('faq-notification-dot');
+            if (!localStorage.getItem(FAQ_UPDATE_KEY)) {
+                faqDot.classList.remove('hidden');
             }
         }
 
@@ -379,6 +390,7 @@
         
         async function attachRatingsListener() {
             const footer = document.querySelector('footer');
+            if (document.getElementById('rating-widget')) return; // Already exists
             const ratingWidgetHTML = `
                 <div id="rating-widget" style="display: flex; flex-direction: column; align-items: center; gap: 0.25rem; color: inherit; font-size: 0.75rem;">
                     <div style="display: flex; gap: 0.75rem;">
@@ -425,7 +437,6 @@
             try {
                 await updateDoc(ratingRef, { [vote]: increment(1) });
                 localStorage.setItem('app-rated', vote);
-                // No need to call attachRatingsListener, onSnapshot will handle it.
             } catch (error) {
                 if (error.code === 'not-found') {
                     await setDoc(ratingRef, { happy: 0, sad: 0, [vote]: 1 });
@@ -481,6 +492,10 @@
                 document.getElementById('groups-btn').classList.add('active');
             } else if (viewName === 'faq') {
                 const faqView = document.getElementById('faq-view');
+                const FAQ_UPDATE_KEY = 'faq-update-seen-v10.6';
+                document.getElementById('faq-notification-dot').classList.add('hidden');
+                localStorage.setItem(FAQ_UPDATE_KEY, 'true');
+                
                 faqView.classList.remove('hidden');
                 if(!faqView.innerHTML) { // Load only once
                     try {
