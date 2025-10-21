@@ -18,7 +18,7 @@
         #app { display: flex; flex-direction: column; height: 100vh; max-width: 28rem; margin: auto; background-color: var(--background); box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25); position: relative; overflow: hidden; }
         header { padding: 0.5rem 1rem; background-color: var(--brand-blue); display: flex; justify-content: space-between; align-items: center; z-index: 20; flex-shrink: 0; color: white; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         #map { height: 35vh; z-index: 10; background-color: #e2e8f0; }
-        #main-content { flex-grow: 1; overflow-y: auto; }
+        #main-content { flex-grow: 1; overflow-y: auto; min-height: 0; }
         .alert-item { padding: 1rem; border-radius: 0.75rem; border-left-width: 5px; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); }
         footer { position: relative; display: flex; justify-content: space-around; padding: 0.5rem; align-items: center; background-color: var(--brand-blue); flex-shrink: 0; z-index: 20; color: rgba(255, 255, 255, 0.7); box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.1); }
         .footer-btn { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; background: none; border: none; color: inherit; cursor: pointer; padding: 0.25rem; }
@@ -41,6 +41,14 @@
         .modal-overlay { position: absolute; inset: 0; background-color: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.3s ease; }
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.75rem; width: calc(100% - 2rem); max-width: 24rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; gap: 1rem; }
         .input-field { box-sizing: border-box; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 1rem; }
+        
+        /* New Typhoon Styles */
+        .tab-btn { flex: 1; text-align: center; font-weight: 600; padding: 0.75rem; border-bottom: 3px solid transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+        .tab-btn.active { border-color: var(--brand-yellow); color: var(--brand-blue); }
+        .typhoon-card .details-section { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out; padding-top: 0; padding-bottom: 0; }
+        .typhoon-card .details-section.open { max-height: 1000px; padding-top: 1rem; padding-bottom: 1rem; }
+        .chevron-icon { transition: transform 0.3s ease-in-out; }
+        .chevron-icon.open { transform: rotate(180deg); }
     </style>
 </head>
 <body>
@@ -70,15 +78,24 @@
                 <button id="dismiss-install-btn" style="background:none; border:none; color:inherit; cursor: pointer;"><i data-lucide="x" class="h-5 w-5"></i></button>
             </div>
              <div id="alerts-view">
-                <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
-                    Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
+                <div style="padding: 1rem 1rem 0 1rem; background-color: white; border-bottom: 1px solid var(--border-color);">
+                    <div style="display: flex;">
+                        <button id="typhoon-tab-btn" class="tab-btn active">Typhoons</button>
+                        <button id="earthquake-tab-btn" class="tab-btn">Earthquakes</button>
+                    </div>
                 </div>
-                <div id="map"></div>
-                <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
-                    <h2 id="warnings-title" style="font-weight: 600; font-size: 1.125rem;">Active Warnings</h2>
-                    <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Loading alerts...</p>
+                <div id="typhoon-alerts-container" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                <div id="earthquake-alerts-container" class="hidden">
+                    <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
+                        Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
+                    </div>
+                    <div id="map"></div>
+                    <div style="padding: 1rem; border-bottom: 1px solid var(--border-color); border-top: 1px solid var(--border-color); background-color: white;">
+                        <h2 id="warnings-title" style="font-weight: 600; font-size: 1.125rem;">Active Warnings</h2>
+                        <p id="warnings-subtitle" style="font-size: 0.75rem; color: var(--text-secondary);">Loading alerts...</p>
+                    </div>
+                    <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></main>
                 </div>
-                <main id="alert-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></main>
             </div>
             <div id="groups-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
             <div id="group-detail-view" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 1rem;"></div>
@@ -89,7 +106,7 @@
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
             <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
-            <div style="position: absolute; bottom: 2px; right: 8px; font-size: 0.625rem; color: rgba(255,255,255,0.4);">v10.8</div>
+            <div style="position: absolute; bottom: 2px; right: 8px; font-size: 0.625rem; color: rgba(255,255,255,0.4);">v11.6</div>
         </footer>
 
         <!-- Modals -->
@@ -115,11 +132,19 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, query, where, getDocs, onSnapshot, arrayUnion, arrayRemove, serverTimestamp, orderBy, limit, Timestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
         
+        const firebaseConfig = {
+            apiKey: "AIzaSyB7WosOnEIYMooRsZowf9Ac4i8_A3sNSQY",
+            authDomain: "bantay-pwa.firebaseapp.com",
+            projectId: "bantay-pwa",
+            storageBucket: "bantay-pwa.appspot.com",
+            messagingSenderId: "860293436189",
+            appId: "1:860293436189:web:909b94456c6041019d47f4"
+        };
+
         let map, app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
-        let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null };
+        let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null, typhoons: null };
         let groupMemberTimers = {};
-        const firebaseConfigB64 = "__FIREBASE_CONFIG_B64__";
         const PERSISTENT_UID_KEY = 'safekaba_persistent_uid';
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -135,6 +160,9 @@
             document.getElementById('header-faq-btn').addEventListener('click', () => switchView('faq'));
             document.getElementById('enable-location-btn').addEventListener('click', getUserLocation);
             
+            document.getElementById('typhoon-tab-btn').addEventListener('click', () => switchAlertView('typhoon'));
+            document.getElementById('earthquake-tab-btn').addEventListener('click', () => switchAlertView('earthquake'));
+
             document.getElementById('feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.remove('hidden'); });
             document.getElementById('cancel-feedback-btn').addEventListener('click', () => { document.getElementById('feedback-modal').classList.add('hidden'); });
             document.getElementById('send-feedback-btn').addEventListener('click', sendFeedback);
@@ -146,9 +174,7 @@
         }
 
         async function initializeFirebase() {
-            if (!firebaseConfigB64 || firebaseConfigB64.startsWith('__')) { return; }
             try {
-                const firebaseConfig = JSON.parse(atob(firebaseConfigB64).trim());
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -165,6 +191,7 @@
                         manageFaqNotification();
                         attachUserGroupsListener(userId);
                         attachRatingsListener();
+                        attachTyphoonListener();
                         
                         if (localStorage.getItem('location-choice-made') === 'denied') {
                              document.getElementById('location-banner').classList.remove('hidden');
@@ -232,9 +259,9 @@
                 
                 const newUserSnap = await getDoc(doc(db, `artifacts/${appId}/public/data/users`, currentAuthId));
                 if (newUserSnap.exists() && (newUserSnap.data().groups?.length ?? 0) > 0) {
-                     console.log('New user ID already has a document with data. Using it as primary.');
-                     localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
-                     return currentAuthId;
+                       console.log('New user ID already has a document with data. Using it as primary.');
+                       localStorage.setItem(PERSISTENT_UID_KEY, currentAuthId);
+                       return currentAuthId;
                 }
                 
                 await migrateUserData(storedId, currentAuthId);
@@ -256,8 +283,8 @@
                     await setDoc(newUserRef, oldData);
                     console.log("User data migrated successfully.");
                 } else {
-                     console.log("Old user document not found, cannot migrate.");
-                     await setupUserDocument(newId);
+                    console.log("Old user document not found, cannot migrate.");
+                    await setupUserDocument(newId);
                 }
             } catch (error) {
                 console.error("Error migrating user data:", error);
@@ -305,6 +332,50 @@
                 },
                 options
             );
+        }
+        
+        // --- TYPHOON ALERT LOGIC ---
+        function attachTyphoonListener() {
+            if (listeners.typhoons) listeners.typhoons();
+            const typhoonRef = collection(db, `artifacts/${appId}/public/data/typhoon-alerts`);
+            const q = query(typhoonRef, where("isActive", "==", true));
+            listeners.typhoons = onSnapshot(q, (snapshot) => {
+                const typhoons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderTyphoonList(typhoons);
+            }, (error) => console.error("Error fetching typhoon data:", error));
+        }
+
+        function renderTyphoonList(typhoons) {
+            const container = document.getElementById('typhoon-alerts-container');
+            const typhoonTabBtn = document.getElementById('typhoon-tab-btn');
+            typhoonTabBtn.textContent = `Typhoons (${typhoons.length})`;
+
+            if (typhoons.length === 0) {
+                container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="sun" style="width: 3rem; height: 3rem; margin: auto;"></i><p style="margin-top: 1rem; color: var(--text-primary);">All clear. No active typhoons monitored by PAGASA.</p></div>`;
+                lucide.createIcons(); return;
+            }
+
+            container.innerHTML = typhoons.map((typhoon, index) => {
+                const highestSignal = Object.keys(typhoon.signalLevels).map(Number).sort((a,b) => b-a).find(s => typhoon.signalLevels[s] && typhoon.signalLevels[s].length > 0) || 'N/A';
+                const signalColors = { '5': '#D83121', '4': '#f97316', '3': '#eab308', '2': '#3b82f6', '1': '#22c55e' };
+                const signalBorderColor = signalColors[highestSignal] || '#6B7280';
+                
+                let detailsHtml = '';
+                for (let i = 5; i >= 1; i--) {
+                    const signal = i.toString();
+                    if (typhoon.signalLevels[signal] && typhoon.signalLevels[signal].length > 0) {
+                        detailsHtml += `<div style="border-top: 1px solid var(--border-color); padding: 0.75rem 0;"><p style="font-weight: 600; color: ${signalColors[signal]};">Signal No. ${signal}</p><p style="font-size: 0.875rem; color: var(--text-secondary);">${typhoon.signalLevels[signal].join(', ')}</p></div>`;
+                    }
+                }
+
+                return `<div class="typhoon-card" style="background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); border-left: 8px solid ${signalBorderColor};"><div style="padding: 1rem; display:flex; align-items:center; gap: 1rem; cursor:pointer;" onclick="toggleTyphoonDetails('typhoon-card-${index}')"><div style="color: ${signalBorderColor};"><i data-lucide="cyclone" style="width: 2.5rem; height: 2.5rem;"></i></div><div style="flex: 1;"><p style="font-weight: 700; font-size: 1.125rem;">${typhoon.name}</p><p style="font-size: 0.875rem; color: var(--text-secondary);">Highest Signal: No. ${highestSignal}</p></div><div id="chevron-typhoon-card-${index}" class="chevron-icon"><i data-lucide="chevron-down"></i></div></div><div id="details-typhoon-card-${index}" class="details-section" style="background-color: #f9fafb; padding-left: 1rem; padding-right: 1rem;">${detailsHtml}<div style="text-align: center; font-size: 0.75rem; color: #9ca3af; padding-top: 0.5rem;">Source: PAGASA | Updated ${formatTimeAgo(new Date(typhoon.lastUpdated))}</div></div></div>`;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        window.toggleTyphoonDetails = function(cardId) {
+            document.getElementById(`details-${cardId}`)?.classList.toggle('open');
+            document.getElementById(`chevron-${cardId}`)?.classList.toggle('open');
         }
 
         function attachAlertsListener(type = 'national') {
@@ -471,7 +542,7 @@
             }
         }
         
-        async function switchView(viewName) {
+        function switchView(viewName) {
             document.getElementById('alerts-view').classList.add('hidden');
             document.getElementById('groups-view').classList.add('hidden');
             document.getElementById('group-detail-view').classList.add('hidden');
@@ -499,14 +570,30 @@
                 
                 faqView.classList.remove('hidden');
                 if(!faqView.innerHTML) { // Load only once
-                    try {
-                        const response = await fetch('faq.html');
-                        const text = await response.text();
-                        faqView.innerHTML = text;
-                    } catch(e) {
-                        faqView.innerHTML = `<p style="text-align:center; color: var(--brand-red); padding: 1rem;">Could not load FAQ.</p>`
-                    }
+                    fetch('faq.html').then(r => r.text()).then(t => faqView.innerHTML = t)
+                    .catch(e => faqView.innerHTML = `<p style="text-align:center; color: var(--brand-red); padding: 1rem;">Could not load FAQ.</p>`);
                 }
+            }
+        }
+        
+        function switchAlertView(view) {
+            const typhoonContainer = document.getElementById('typhoon-alerts-container');
+            const earthquakeContainer = document.getElementById('earthquake-alerts-container');
+            const typhoonTab = document.getElementById('typhoon-tab-btn');
+            const earthquakeTab = document.getElementById('earthquake-tab-btn');
+
+            if (view === 'typhoon') {
+                typhoonContainer.classList.remove('hidden');
+                earthquakeContainer.classList.add('hidden');
+                typhoonTab.classList.add('active');
+                earthquakeTab.classList.remove('active');
+            } else { // earthquake
+                typhoonContainer.classList.add('hidden');
+                earthquakeContainer.classList.remove('hidden');
+                typhoonTab.classList.remove('active');
+                earthquakeTab.classList.add('active');
+                if (!map) initializeMap();
+                else map.invalidateSize();
             }
         }
         function updateSafetyStatus(newStatus) {
@@ -635,7 +722,7 @@
                         el.onclick = () => { switchView('group-detail'); renderGroupDetail(groupId); }
                         listContainer.appendChild(el);
                     }
-                }
+                 }
             }
             document.getElementById('join-group-btn').addEventListener('click', () => joinGroup());
             document.getElementById('create-group-btn').addEventListener('click', createGroup);
