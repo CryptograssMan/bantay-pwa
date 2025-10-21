@@ -42,11 +42,11 @@
         .modal-content { background-color: white; padding: 1.5rem; border-radius: 0.75rem; width: calc(100% - 2rem); max-width: 24rem; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1); display: flex; flex-direction: column; gap: 1rem; }
         .input-field { box-sizing: border-box; width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.5rem; font-size: 1rem; }
         
-        /* New Typhoon Styles */
+        /* Alert Tab Styles */
         .tab-btn { flex: 1; text-align: center; font-weight: 600; padding: 0.75rem; border-bottom: 3px solid transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
         .tab-btn.active { border-color: var(--brand-yellow); color: var(--brand-blue); }
-        .typhoon-card .details-section { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out; padding-top: 0; padding-bottom: 0; }
-        .typhoon-card .details-section.open { max-height: 1000px; padding-top: 1rem; padding-bottom: 1rem; }
+        .details-section { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out, padding 0.5s ease-in-out; padding-top: 0; padding-bottom: 0; }
+        .details-section.open { max-height: 1000px; padding-top: 1rem; padding-bottom: 1rem; }
         .chevron-icon { transition: transform 0.3s ease-in-out; }
         .chevron-icon.open { transform: rotate(180deg); }
     </style>
@@ -80,12 +80,12 @@
              <div id="alerts-view">
                 <div style="padding: 1rem 1rem 0 1rem; background-color: white; border-bottom: 1px solid var(--border-color);">
                     <div style="display: flex;">
-                        <button id="typhoon-tab-btn" class="tab-btn active">Typhoons</button>
-                        <button id="earthquake-tab-btn" class="tab-btn">Earthquakes</button>
+                        <button id="earthquake-tab-btn" class="tab-btn active">Earthquakes</button>
+                        <button id="typhoon-tab-btn" class="tab-btn">Typhoons</button>
                     </div>
                 </div>
-                <div id="typhoon-alerts-container" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
-                <div id="earthquake-alerts-container" class="hidden">
+                <div id="typhoon-alerts-container" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                <div id="earthquake-alerts-container">
                     <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
                         Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
                     </div>
@@ -106,7 +106,7 @@
             <button id="alerts-btn" class="footer-btn active"><i data-lucide="shield-alert"></i><span>Alerts</span></button>
             <button id="groups-btn" class="footer-btn"><i data-lucide="users"></i><span>Groups</span></button>
             <button id="feedback-btn" class="footer-btn"><i data-lucide="message-square-plus"></i><span>Feedback</span></button>
-            <div style="position: absolute; bottom: 2px; right: 8px; font-size: 0.625rem; color: rgba(255,255,255,0.4);">v11.7</div>
+            <div style="position: absolute; bottom: 2px; right: 8px; font-size: 0.625rem; color: rgba(255,255,255,0.4);">v11.10</div>
         </footer>
 
         <!-- Modals -->
@@ -616,21 +616,16 @@
         }
         
         function switchAlertView(view) {
-            const typhoonContainer = document.getElementById('typhoon-alerts-container');
-            const earthquakeContainer = document.getElementById('earthquake-alerts-container');
-            const typhoonTab = document.getElementById('typhoon-tab-btn');
-            const earthquakeTab = document.getElementById('earthquake-tab-btn');
+            document.getElementById('typhoon-alerts-container').classList.add('hidden');
+            document.getElementById('earthquake-alerts-container').classList.add('hidden');
+            
+            document.getElementById('typhoon-tab-btn').classList.remove('active');
+            document.getElementById('earthquake-tab-btn').classList.remove('active');
+            
+            document.getElementById(`${view}-alerts-container`).classList.remove('hidden');
+            document.getElementById(`${view}-tab-btn`).classList.add('active');
 
-            if (view === 'typhoon') {
-                typhoonContainer.classList.remove('hidden');
-                earthquakeContainer.classList.add('hidden');
-                typhoonTab.classList.add('active');
-                earthquakeTab.classList.remove('active');
-            } else { // earthquake
-                typhoonContainer.classList.add('hidden');
-                earthquakeContainer.classList.remove('hidden');
-                typhoonTab.classList.remove('active');
-                earthquakeTab.classList.add('active');
+            if (view === 'earthquake') {
                 if (!map) initializeMap();
                 else map.invalidateSize();
             }
