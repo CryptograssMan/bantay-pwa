@@ -399,7 +399,7 @@
             const typhoons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             
             if(typhoons.length === 0) {
-                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);">No active typhoons nationwide.</div>`;
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);">Page under construction, coming soon!</div>`;
                  return;
             }
             
