@@ -99,6 +99,14 @@
         .details-section.open { max-height: 1000px; padding-top: 1rem; padding-bottom: 1rem; }
         .chevron-icon { transition: transform 0.3s ease-in-out; }
         .chevron-icon.open { transform: rotate(180deg); }
+
+        /* Typhoon Styles */
+        #typhoon-map { height: 35vh; z-index: 10; background-color: #e2e8f0; }
+        .typhoon-stat { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--text-secondary); }
+        .typhoon-stat i { width: 1rem; height: 1rem; flex-shrink: 0; }
+        .typhoon-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+        .typhoon-badge { display: inline-block; padding: 0.125rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; color: white; }
+        .advisory-card { padding: 0.75rem; border-radius: 0.5rem; background-color: #eff6ff; border: 1px solid #bfdbfe; }
     </style>
 </head>
 <body>
@@ -134,7 +142,11 @@
                         <button id="typhoon-tab-btn" class="tab-btn">Typhoons</button>
                     </div>
                 </div>
-                <div id="typhoon-alerts-container" class="hidden" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                <div id="typhoon-alerts-container" class="hidden" style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <div id="typhoon-map"></div>
+                    <div id="typhoon-list" style="padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem;"></div>
+                    <div id="weather-advisories" style="padding: 0 1rem 1rem 1rem; display: flex; flex-direction: column; gap: 0.5rem;"></div>
+                </div>
                 <div id="earthquake-alerts-container">
                     <div id="location-banner" style="background-color: var(--brand-yellow); color: var(--text-primary); padding: 0.75rem 1rem; text-align: center; font-size: 0.875rem;">
                         Get more relevant alerts for your area. <button id="enable-location-btn" style="background:none; border:none; color:var(--brand-blue); text-decoration: underline; cursor: pointer; font-weight: 600;">Enable Location</button>
@@ -191,9 +203,10 @@
             appId: "1:860293436189:web:909b94456c6041019d47f4"
         };
 
-        let map, app, auth, db, userId;
+        let map, typhoonMap, app, auth, db, userId;
         const appId = 'bantay-pwa-live'; 
-        let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null, typhoons: null };
+        let listeners = { userGroups: null, groupMembers: {}, alerts: null, ratings: null, typhoons: null, advisories: null };
+        let typhoonMapLayers = [];
         let groupMemberTimers = {};
         const PERSISTENT_UID_KEY = 'safekaba_persistent_uid';
 
@@ -388,76 +401,173 @@
         }
         
         // --- TYPHOON ALERT LOGIC ---
+        const signalColors = { '5': '#D83121', '4': '#f97316', '3': '#eab308', '2': '#3b82f6', '1': '#22c55e' };
+
         function attachTyphoonListener(type = 'national') {
             if (listeners.typhoons) listeners.typhoons();
-            let typhoonRef, q;
-            if (type === 'local') {
-                typhoonRef = collection(db, `artifacts/${appId}/public/data/local-typhoon-alerts`);
-                q = query(typhoonRef, where("isActive", "==", true));
-            } else { // national
-                typhoonRef = collection(db, `artifacts/${appId}/public/data/typhoon-alerts`);
-                q = query(typhoonRef, where("isActive", "==", true));
-            }
+            const collName = type === 'local' ? 'local-typhoon-alerts' : 'typhoon-alerts';
+            const typhoonRef = collection(db, `artifacts/${appId}/public/data/${collName}`);
+            const q = query(typhoonRef, where("isActive", "==", true));
 
             listeners.typhoons = onSnapshot(q, (snapshot) => {
                 const typhoons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderTyphoonList(typhoons, { type });
+                updateTyphoonMap(typhoons);
             }, (error) => console.error(`Error fetching ${type} typhoon data:`, error));
+
+            attachWeatherAdvisoryListener();
+        }
+
+        function attachWeatherAdvisoryListener() {
+            if (listeners.advisories) listeners.advisories();
+            const advRef = collection(db, `artifacts/${appId}/public/data/weather-advisories`);
+            const q = query(advRef, where("isActive", "==", true));
+            listeners.advisories = onSnapshot(q, (snapshot) => {
+                const advisories = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderWeatherAdvisories(advisories);
+            }, (error) => console.error('Error fetching advisories:', error));
+        }
+
+        function renderWeatherAdvisories(advisories) {
+            const container = document.getElementById('weather-advisories');
+            if (!container || advisories.length === 0) { if (container) container.innerHTML = ''; return; }
+            container.innerHTML = `<h3 style="font-weight: 600; font-size: 1rem; padding-top: 0.5rem;">Weather Advisories</h3>` +
+                advisories.map(a => `<div class="advisory-card"><div style="display: flex; align-items: flex-start; gap: 0.5rem;"><i data-lucide="cloud-rain" style="width: 1.25rem; height: 1.25rem; color: #3b82f6; flex-shrink: 0; margin-top: 2px;"></i><div><p style="font-weight: 600; font-size: 0.875rem;">${a.title || 'Advisory'}</p><p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${(a.description || '').substring(0, 200)}</p></div></div></div>`).join('');
+            lucide.createIcons();
+        }
+
+        function initializeTyphoonMap() {
+            if (typhoonMap) return;
+            const container = document.getElementById('typhoon-map');
+            if (!container) return;
+            typhoonMap = L.map('typhoon-map').setView([14.5, 121.0], 6);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                subdomains: 'abcd', minZoom: 3, maxZoom: 14
+            }).addTo(typhoonMap);
+        }
+
+        function updateTyphoonMap(typhoons) {
+            if (!typhoonMap) return;
+            typhoonMapLayers.forEach(l => typhoonMap.removeLayer(l));
+            typhoonMapLayers = [];
+            const bounds = [];
+            typhoons.forEach(typhoon => {
+                const loc = typhoon.currentLocation;
+                if (!loc || !loc.lat || !loc.lon) return;
+                const highestSignal = Object.keys(typhoon.signalLevels || {}).map(Number).sort((a,b) => b-a).find(s => typhoon.signalLevels[s]?.length > 0) || 0;
+                const color = signalColors[highestSignal] || '#6B7280';
+                const marker = L.circleMarker([loc.lat, loc.lon], { radius: 14, color: color, fillColor: color, fillOpacity: 0.5, weight: 3 }).addTo(typhoonMap);
+                marker.bindPopup(`<b>${typhoon.name}</b>${typhoon.category ? ' (' + typhoon.category + ')' : ''}<br>Signal No. ${highestSignal || 'N/A'}${typhoon.windSpeedKph ? '<br>Winds: ' + typhoon.windSpeedKph + ' km/h' : ''}${typhoon.movementDirection ? '<br>Moving: ' + typhoon.movementDirection : ''}`);
+                typhoonMapLayers.push(marker);
+                bounds.push([loc.lat, loc.lon]);
+                const dot = L.circleMarker([loc.lat, loc.lon], { radius: 5, color: '#fff', fillColor: color, fillOpacity: 1, weight: 2 }).addTo(typhoonMap);
+                typhoonMapLayers.push(dot);
+                if (typhoon.forecastTrack && typhoon.forecastTrack.length > 0) {
+                    const trackPoints = [[loc.lat, loc.lon]];
+                    typhoon.forecastTrack.forEach(pt => {
+                        if (pt.lat && pt.lon) {
+                            trackPoints.push([pt.lat, pt.lon]);
+                            bounds.push([pt.lat, pt.lon]);
+                            const fMarker = L.circleMarker([pt.lat, pt.lon], { radius: 4, color: color, fillColor: '#fff', fillOpacity: 0.8, weight: 2 }).addTo(typhoonMap);
+                            fMarker.bindTooltip(`+${pt.hoursAhead}h`, { permanent: false, direction: 'top' });
+                            typhoonMapLayers.push(fMarker);
+                        }
+                    });
+                    const line = L.polyline(trackPoints, { color: color, weight: 2, dashArray: '6,6', opacity: 0.7 }).addTo(typhoonMap);
+                    typhoonMapLayers.push(line);
+                }
+            });
+            if (bounds.length > 0) typhoonMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 8 });
+        }
+
+        function getHighestSignal(typhoon) {
+            return Object.keys(typhoon.signalLevels || {}).map(Number).sort((a,b) => b-a).find(s => typhoon.signalLevels[s]?.length > 0) || 0;
         }
 
         function renderTyphoonList(typhoons, options = { type: 'national' }) {
-            const container = document.getElementById('typhoon-alerts-container');
+            const listContainer = document.getElementById('typhoon-list');
             const typhoonTabBtn = document.getElementById('typhoon-tab-btn');
             typhoonTabBtn.textContent = `Typhoons (${typhoons.length})`;
-
             if (typhoons.length === 0) {
+                document.getElementById('typhoon-map').style.display = 'none';
+                document.getElementById('weather-advisories').style.display = '';
                 if (options.type === 'local') {
-                    container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="sun" style="width: 3rem; height: 3rem; margin: auto;"></i><p style="margin-top: 1rem; color: var(--text-primary);">All clear. No active typhoons monitored by PAGASA in your area.</p></div>
-                    <div style="margin-top: 1rem;">
-                        <h3 style="font-weight: 600; font-size: 1.125rem; margin-bottom: 0.75rem; padding-left: 0.5rem;">National Report</h3>
-                        <div id="national-typhoons-fallback" style="display: flex; flex-direction: column; gap: 0.75rem;"></div>
-                    </div>`;
+                    listContainer.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="sun" style="width: 3rem; height: 3rem; margin: auto;"></i><p style="margin-top: 1rem; color: var(--text-primary);">All clear. No active typhoons monitored by PAGASA in your area.</p></div>
+                    <div style="margin-top: 1rem;"><h3 style="font-weight: 600; font-size: 1.125rem; margin-bottom: 0.75rem;">National Report</h3><div id="national-typhoons-fallback" style="display: flex; flex-direction: column; gap: 0.75rem;"></div></div>`;
                     fetchAndRenderNationalTyphoonsFallback();
-                } else { // national
-                     container.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="sun" style="width: 3rem; height: 3rem; margin: auto;"></i><p style="margin-top: 1rem; color: var(--text-primary);">All clear. No active typhoons monitored by PAGASA.</p></div>`;
+                } else {
+                     listContainer.innerHTML = `<div style="text-align: center; color: var(--brand-green); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="sun" style="width: 3rem; height: 3rem; margin: auto;"></i><p style="margin-top: 1rem; color: var(--text-primary);">All clear. No active typhoons monitored by PAGASA.</p></div>`;
                 }
                 lucide.createIcons(); return;
             }
-
-            container.innerHTML = typhoons.map((typhoon, index) => {
-                const highestSignal = Object.keys(typhoon.signalLevels).map(Number).sort((a,b) => b-a).find(s => typhoon.signalLevels[s] && typhoon.signalLevels[s].length > 0) || 'N/A';
-                const signalColors = { '5': '#D83121', '4': '#f97316', '3': '#eab308', '2': '#3b82f6', '1': '#22c55e' };
-                const signalBorderColor = signalColors[highestSignal] || '#6B7280';
+            document.getElementById('typhoon-map').style.display = '';
+            initializeTyphoonMap();
+            setTimeout(() => { if (typhoonMap) typhoonMap.invalidateSize(); }, 100);
+            listContainer.innerHTML = typhoons.map((typhoon, index) => {
+                const highestSignal = getHighestSignal(typhoon);
+                const borderColor = signalColors[highestSignal] || '#6B7280';
+                const badgeColors = { '5': '#D83121', '4': '#f97316', '3': '#eab308', '2': '#3b82f6', '1': '#22c55e', '0': '#6B7280' };
+                let statsHtml = '';
+                if (typhoon.windSpeedKph) statsHtml += `<div class="typhoon-stat"><i data-lucide="wind"></i> ${typhoon.windSpeedKph} km/h${typhoon.gustinessKph ? ' (gusts ' + typhoon.gustinessKph + ')' : ''}</div>`;
+                if (typhoon.movementDirection) statsHtml += `<div class="typhoon-stat"><i data-lucide="compass"></i> ${typhoon.movementDirection}${typhoon.movementSpeedKph ? ' at ' + typhoon.movementSpeedKph + ' km/h' : ''}</div>`;
+                if (typhoon.currentLocation?.lat) statsHtml += `<div class="typhoon-stat"><i data-lucide="map-pin"></i> ${typhoon.currentLocation.lat.toFixed(1)}°N, ${typhoon.currentLocation.lon.toFixed(1)}°E</div>`;
+                if (typhoon.forecastTrack?.length) statsHtml += `<div class="typhoon-stat"><i data-lucide="route"></i> ${typhoon.forecastTrack.length}-point track</div>`;
                 let detailsHtml = '';
+                if (typhoon.rainfallWarning) detailsHtml += `<div style="border-top: 1px solid var(--border-color); padding: 0.75rem 0;"><p style="font-weight: 600; color: #3b82f6;"><i data-lucide="cloud-rain" style="width: 1rem; height: 1rem; display: inline; vertical-align: middle;"></i> Rainfall Warning</p><p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${typhoon.rainfallWarning.substring(0, 200)}${typhoon.rainfallWarning.length > 200 ? '...' : ''}</p></div>`;
+                if (typhoon.stormSurgeWarning) detailsHtml += `<div style="border-top: 1px solid var(--border-color); padding: 0.75rem 0;"><p style="font-weight: 600; color: #0891b2;"><i data-lucide="waves" style="width: 1rem; height: 1rem; display: inline; vertical-align: middle;"></i> Storm Surge Warning</p><p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">${typhoon.stormSurgeWarning.substring(0, 200)}${typhoon.stormSurgeWarning.length > 200 ? '...' : ''}</p></div>`;
                 for (let i = 5; i >= 1; i--) {
                     const signal = i.toString();
-                    if (typhoon.signalLevels[signal] && typhoon.signalLevels[signal].length > 0) {
-                        detailsHtml += `<div style="border-top: 1px solid var(--border-color); padding: 0.75rem 0;"><p style="font-weight: 600; color: ${signalColors[signal]};">Signal No. ${signal}</p><p style="font-size: 0.875rem; color: var(--text-secondary);">${typhoon.signalLevels[signal].join(', ')}</p></div>`;
+                    if (typhoon.signalLevels?.[signal]?.length > 0) {
+                        detailsHtml += `<div style="border-top: 1px solid var(--border-color); padding: 0.75rem 0;"><p style="font-weight: 600; color: ${signalColors[signal]};">TCWS No. ${signal}</p><p style="font-size: 0.8rem; color: var(--text-secondary);">${typhoon.signalLevels[signal].join(', ')}</p></div>`;
                     }
                 }
-                return `<div class="typhoon-card" style="background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); border-left: 8px solid ${signalBorderColor};"><div style="padding: 1rem; display:flex; align-items:center; gap: 1rem; cursor:pointer;" onclick="toggleTyphoonDetails('typhoon-card-${index}')"><div style="color: ${signalBorderColor};"><i data-lucide="cyclone" style="width: 2.5rem; height: 2.5rem;"></i></div><div style="flex: 1;"><p style="font-weight: 700; font-size: 1.125rem;">${typhoon.name}</p><p style="font-size: 0.875rem; color: var(--text-secondary);">Highest Signal: No. ${highestSignal}</p></div><div id="chevron-typhoon-card-${index}" class="chevron-icon"><i data-lucide="chevron-down"></i></div></div><div id="details-typhoon-card-${index}" class="details-section" style="background-color: #f9fafb; padding-left: 1rem; padding-right: 1rem;">${detailsHtml}<div style="text-align: center; font-size: 0.75rem; color: #9ca3af; padding-top: 0.5rem;">Source: PAGASA | Updated ${formatTimeAgo(new Date(typhoon.lastUpdated))}</div></div></div>`;
+                return `<div class="typhoon-card" style="background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); border-left: 8px solid ${borderColor}; overflow: hidden;">
+                    <div style="padding: 1rem; cursor:pointer;" onclick="toggleTyphoonDetails('typhoon-card-${index}')">
+                        <div style="display:flex; align-items:center; gap: 1rem;">
+                            <div style="color: ${borderColor};"><i data-lucide="cyclone" style="width: 2.5rem; height: 2.5rem;"></i></div>
+                            <div style="flex: 1;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                                    <p style="font-weight: 700; font-size: 1.125rem;">${typhoon.name}</p>
+                                    ${typhoon.internationalName ? `<span style="font-size: 0.8rem; color: var(--text-secondary);">(${typhoon.internationalName})</span>` : ''}
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; flex-wrap: wrap;">
+                                    <span class="typhoon-badge" style="background-color: ${badgeColors[highestSignal] || '#6B7280'};">Signal ${highestSignal || 'N/A'}</span>
+                                    ${typhoon.category ? `<span style="font-size: 0.75rem; color: var(--text-secondary);">${typhoon.category}</span>` : ''}
+                                </div>
+                            </div>
+                            <div id="chevron-typhoon-card-${index}" class="chevron-icon"><i data-lucide="chevron-down"></i></div>
+                        </div>
+                        ${statsHtml ? `<div class="typhoon-stats-grid">${statsHtml}</div>` : ''}
+                    </div>
+                    <div id="details-typhoon-card-${index}" class="details-section" style="background-color: #f9fafb; padding-left: 1rem; padding-right: 1rem;">
+                        ${detailsHtml}
+                        <div style="text-align: center; font-size: 0.75rem; color: #9ca3af; padding: 0.5rem 0;">
+                            Source: PAGASA | Updated ${formatTimeAgo(new Date(typhoon.lastUpdated))}
+                            ${typhoon.sourceUrl ? ` | <a href="${typhoon.sourceUrl}" target="_blank" rel="noopener" style="color: var(--brand-blue);">View Bulletin</a>` : ''}
+                        </div>
+                    </div>
+                </div>`;
             }).join('');
             lucide.createIcons();
         }
         
         async function fetchAndRenderNationalTyphoonsFallback() {
             const container = document.getElementById('national-typhoons-fallback');
+            if (!container) return;
             container.innerHTML = `<div class="loader" style="margin: 1rem auto;"></div>`;
             const nationalRef = collection(db, `artifacts/${appId}/public/data/typhoon-alerts`);
             const q = query(nationalRef, where("isActive", "==", true));
             const snapshot = await getDocs(q);
             const typhoons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            
             if(typhoons.length === 0) {
-                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 2rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);">Page under construction, coming soon!</div>`;
-                 return;
+                 container.innerHTML = `<div style="text-align: center; color: var(--text-secondary); padding: 1.5rem; border-radius: 0.75rem; background-color: white; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07);"><i data-lucide="shield-check" style="width: 2rem; height: 2rem; margin: 0 auto 0.5rem; color: var(--brand-green);"></i><p>No active typhoons nationwide.</p></div>`;
+                 lucide.createIcons(); return;
             }
-            
-            container.innerHTML = typhoons.map((typhoon, index) => {
-                 const highestSignal = Object.keys(typhoon.signalLevels).map(Number).sort((a,b) => b-a).find(s => typhoon.signalLevels[s] && typhoon.signalLevels[s].length > 0) || 'N/A';
-                const signalColors = { '5': '#D83121', '4': '#f97316', '3': '#eab308', '2': '#3b82f6', '1': '#22c55e' };
-                const signalBorderColor = signalColors[highestSignal] || '#6B7280';
-                return `<div class="typhoon-card" style="background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); border-left: 8px solid ${signalBorderColor};"><div style="padding: 1rem; display:flex; align-items:center; gap: 1rem;"><div style="color: ${signalBorderColor};"><i data-lucide="cyclone" style="width: 2.5rem; height: 2.5rem;"></i></div><div style="flex: 1;"><p style="font-weight: 700; font-size: 1.125rem;">${typhoon.name}</p><p style="font-size: 0.875rem; color: var(--text-secondary);">Highest Signal: No. ${highestSignal}</p></div></div></div>`;
+            container.innerHTML = typhoons.map((typhoon) => {
+                const highestSignal = getHighestSignal(typhoon);
+                const borderColor = signalColors[highestSignal] || '#6B7280';
+                return `<div style="background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 12px 0 rgb(0 0 0 / 0.07); border-left: 6px solid ${borderColor}; padding: 1rem; display:flex; align-items:center; gap: 1rem;"><div style="color: ${borderColor};"><i data-lucide="cyclone" style="width: 2rem; height: 2rem;"></i></div><div style="flex: 1;"><p style="font-weight: 700;">${typhoon.name}${typhoon.internationalName ? ' (' + typhoon.internationalName + ')' : ''}</p><p style="font-size: 0.8rem; color: var(--text-secondary);">Signal ${highestSignal} ${typhoon.windSpeedKph ? '| ' + typhoon.windSpeedKph + ' km/h' : ''}</p></div></div>`;
             }).join('');
             lucide.createIcons();
         }
@@ -678,6 +788,9 @@
             if (view === 'earthquake') {
                 if (!map) initializeMap();
                 else map.invalidateSize();
+            } else if (view === 'typhoon') {
+                if (!typhoonMap) initializeTyphoonMap();
+                else setTimeout(() => typhoonMap.invalidateSize(), 100);
             }
         }
         function updateSafetyStatus(newStatus) {
