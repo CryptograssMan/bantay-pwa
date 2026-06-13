@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typhoon Tracker Philippines — Bagyo Tracker | SAFE ka ba?</title>
+    <meta name="description" content="Libreng real-time typhoon tracker para sa Pilipinas. Live bagyo updates, TCWS signal levels, wind speed, at forecast track — powered by GDACS at PAGASA data. Walang install needed.">
+    <meta name="keywords" content="typhoon tracker Philippines, bagyo tracker, PAGASA typhoon update, bagyo update today, typhoon signal Philippines, TCWS signal, typhoon map Philippines, real-time typhoon, bagyo ngayon, signal number meaning">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://app.safekaba.com/typhoon-tracker.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://app.safekaba.com/typhoon-tracker.html">
+    <meta property="og:title" content="Typhoon Tracker Philippines — Bagyo Tracker | SAFE ka ba?">
+    <meta property="og:description" content="Libreng real-time bagyo tracker. Live typhoon map, TCWS signals, wind speed, at forecast track. Walang install needed.">
+    <meta property="og:image" content="https://app.safekaba.com/assets/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="tl_PH">
+    <meta property="og:site_name" content="SAFE ka ba?">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Typhoon Tracker Philippines — Bagyo Tracker">
+    <meta name="twitter:description" content="Libreng real-time bagyo tracker. Live typhoon map, TCWS signals, wind speed, forecast track.">
+    <meta name="twitter:image" content="https://app.safekaba.com/assets/images/og-image.png">
+
+    <link rel="icon" type="image/png" href="assets/images/bantay-logo.png">
+    <link rel="apple-touch-icon" href="assets/images/bantay-logo.png">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Ano ang TCWS Signal Number 1?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TCWS Signal No. 1 means winds of 30-60 km/h are expected within 36 hours. Mag-stock na ng tubig, pagkain, at i-charge ang mga devices. Iwasan ang mga outdoor activities."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang TCWS Signal Number 2?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TCWS Signal No. 2 means winds of 61-120 km/h are expected within 24 hours. Delikado na ang labas. Secure ang mga bintana at pinto, at mag-stay sa loob ng bahay."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang TCWS Signal Number 3?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TCWS Signal No. 3 means winds of 121-170 km/h are expected within 18 hours. Lakas na ito — puwedeng magtanggal ng yero. Kung nasa flood-prone area ka, mag-evacuate na."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang TCWS Signal Number 4?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TCWS Signal No. 4 means winds of 171-220 km/h are expected within 12 hours. Very destructive winds. Mandatory evacuation sa mga coastal at low-lying areas."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang TCWS Signal Number 5?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "TCWS Signal No. 5 means winds exceeding 220 km/h. Catastrophic damage expected — tulad ng Super Typhoon Yolanda. Kailangang naka-evacuate ka na sa pinakamalapit na evacuation center."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Paano gamitin ang SAFE ka ba? typhoon tracker?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Buksan lang ang app.safekaba.com sa browser mo. Tap ang Typhoons tab para makita ang live map, wind speed, forecast track, at TCWS signal levels. Walang kailangang i-install — gumagana sa kahit anong phone."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-card: #141929;
+            --bg-card-hover: #1c2240;
+            --brand-blue: #0A2463;
+            --brand-yellow: #FFCB00;
+            --brand-green: #1DB954;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9ca3af;
+            --border-color: rgba(255,255,255,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Rubik', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+        .container { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+
+        .hero { text-align: center; padding: 3rem 1rem; }
+        .hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .hero h1 span { color: var(--brand-yellow); }
+        .hero p { color: var(--text-secondary); font-size: 1.1rem; max-width: 540px; margin: 0 auto; }
+
+        .cta-btn { display: inline-block; background: var(--brand-yellow); color: #000; font-weight: 700; padding: 0.875rem 2rem; border-radius: 999px; text-decoration: none; font-size: 1.1rem; margin-top: 1.5rem; transition: transform 0.2s; }
+        .cta-btn:hover { transform: scale(1.05); }
+
+        .section { margin-bottom: 3rem; }
+        .section h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--brand-yellow); }
+        .section p { color: var(--text-secondary); margin-bottom: 1rem; }
+
+        .signal-card { background: var(--bg-card); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 6px solid; }
+        .signal-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .signal-card p { color: var(--text-secondary); font-size: 0.95rem; margin: 0; }
+        .s1 { border-color: #22c55e; } .s1 h3 { color: #22c55e; }
+        .s2 { border-color: #3b82f6; } .s2 h3 { color: #3b82f6; }
+        .s3 { border-color: #eab308; } .s3 h3 { color: #eab308; }
+        .s4 { border-color: #f97316; } .s4 h3 { color: #f97316; }
+        .s5 { border-color: #D83121; } .s5 h3 { color: #D83121; }
+
+        .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+        .feature { background: var(--bg-card); border-radius: 0.75rem; padding: 1.25rem; }
+        .feature h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.375rem; }
+        .feature p { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
+
+        .footer { text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 0.875rem; border-top: 1px solid var(--border-color); }
+        .footer a { color: var(--brand-yellow); text-decoration: none; }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 1.5rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="container">
+    <div class="hero">
+        <h1>Bagyo Tracker — <span>Real-Time</span></h1>
+        <p>Eto na naman tayo. Pero this time, at least alam mo kung nasaan ang bagyo, gaano kalakas, at kung kailangan mo na bang mag-evacuate.</p>
+        <a href="https://app.safekaba.com" class="cta-btn">Buksan ang Tracker →</a>
+    </div>
+
+    <div class="section">
+        <h2>Paano gumagana 'to?</h2>
+        <p>Ang SAFE ka ba? ay kumukuha ng typhoon data mula sa <strong>GDACS</strong> (United Nations / European Commission) at ine-enrich ng <strong>PAGASA</strong> TCWS signal levels — every 15 minutes, automatic. Hindi ka na kailangang mag-refresh ng PAGASA website na nag-lo-load pa ng isang oras. Nandito na lahat.</p>
+        <p>Buksan mo lang sa browser — walang install, walang ads, walang kalokohan. Gumagana sa kahit anong phone, kahit sa luma mong Android na binigay ng Tito mo.</p>
+    </div>
+
+    <div class="feature-grid">
+        <div class="feature">
+            <h3>🗺️ Live Typhoon Map</h3>
+            <p>Makikita mo ang exact position ng bagyo sa mapa, pati ang forecast track niya — saan siya papunta sa susunod na 24, 48, 72 hours.</p>
+        </div>
+        <div class="feature">
+            <h3>💨 Wind Speed</h3>
+            <p>Sustained winds at gustiness in km/h. Para alam mo kung "hangin lang 'yan" o "huwag ka na lumabas, pre."</p>
+        </div>
+        <div class="feature">
+            <h3>🔴 TCWS Signals</h3>
+            <p>Signal No. 1 hanggang 5, color-coded, kasama ang listahan ng affected areas — straight from PAGASA.</p>
+        </div>
+        <div class="feature">
+            <h3>👨‍👩‍👧‍👦 Safety Check</h3>
+            <p>Gumawa ng group para sa pamilya mo. Mark yourself as "Safe" para hindi mag-worry si Nanay.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>TCWS Signal Guide — Para Hindi Ka Na Magtatanong</h2>
+        <p>Tuwing may bagyo, puno ang Facebook ng "Ano ibig sabihin ng Signal No. 3?" Eto, isang beses na lang. I-save mo 'tong page na 'to.</p>
+
+        <div class="signal-card s1">
+            <h3>Signal No. 1 — "Mag-prepare ka na"</h3>
+            <p>Winds: 30–60 km/h expected within 36 hours. Mag-stock ng tubig at pagkain, i-charge ang phone, at i-check ang flashlight. Hindi pa emergency, pero huwag kang kampante.</p>
+        </div>
+
+        <div class="signal-card s2">
+            <h3>Signal No. 2 — "Huwag ka na lumabas"</h3>
+            <p>Winds: 61–120 km/h expected within 24 hours. Puwedeng magtanggal ng mga signage at maliliit na structure. Secure ang bintana. Kung kaya, mag-stay sa bahay. Classes suspended na 'yan for sure.</p>
+        </div>
+
+        <div class="signal-card s3">
+            <h3>Signal No. 3 — "Delikado na talaga"</h3>
+            <p>Winds: 121–170 km/h expected within 18 hours. Puwedeng magtanggal ng yero at puno. Kung nasa flood-prone o coastal area ka — alis na. 'Wag na mag-isip, mag-evacuate na.</p>
+        </div>
+
+        <div class="signal-card s4">
+            <h3>Signal No. 4 — "Lakas-tama"</h3>
+            <p>Winds: 171–220 km/h expected within 12 hours. Very destructive. Mandatory evacuation sa coastal, low-lying, at landslide-prone areas. Puwedeng masira ang mga concrete structures. Seryosohan na 'to.</p>
+        </div>
+
+        <div class="signal-card s5">
+            <h3>Signal No. 5 — "Super Typhoon Level"</h3>
+            <p>Winds: 220+ km/h. 'Yung level ni Yolanda. Catastrophic damage. Kung hindi ka pa naka-evacuate, pumunta na sa pinakamalapit na evacuation center. Buhay mo ang pinaka-importante.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Bakit SAFE ka ba?</h2>
+        <p>Maraming weather app dyan — pero ilan ang Pinoy-made, libre, at walang ads? Ang SAFE ka ba? ay ginawa ng mga Pilipino, para sa mga Pilipino, na alam kung ano ang feeling ng 3-day na walang kuryente habang Signal No. 3.</p>
+        <p>Hindi kami news site na magpo-post ng "thoughts and prayers." Isa kaming tool — para alam mo kung safe ka ba, at para alam ng pamilya mo na okay ka.</p>
+        <p style="margin-top: 1.5rem; text-align: center;">
+            <a href="https://app.safekaba.com" class="cta-btn">I-try Mo Na →</a>
+        </p>
+    </div>
+
+    <div class="footer">
+        <p><a href="https://app.safekaba.com">SAFE ka ba?</a> — Libreng calamity monitoring para sa Pilipinas</p>
+        <p style="margin-top: 0.5rem;">Data: GDACS (UN/EU) • PAGASA • USGS • PHIVOLCS</p>
+    </div>
+</div>
+
+</body>
+</html>

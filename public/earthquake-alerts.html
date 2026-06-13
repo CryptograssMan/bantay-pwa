@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earthquake Alerts Philippines — Lindol Tracker | SAFE ka ba?</title>
+    <meta name="description" content="Libreng real-time earthquake alerts para sa Pilipinas. Live lindol updates, magnitude, depth, at epicenter location sa mapa — powered by USGS at PHIVOLCS data. Walang install needed.">
+    <meta name="keywords" content="earthquake alert Philippines, lindol ngayon, lindol today, PHIVOLCS earthquake, earthquake tracker Philippines, earthquake Philippines today, lindol update, magnitude earthquake Philippines, earthquake map Philippines, ring of fire Philippines">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://app.safekaba.com/earthquake-alerts.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://app.safekaba.com/earthquake-alerts.html">
+    <meta property="og:title" content="Earthquake Alerts Philippines — Lindol Tracker | SAFE ka ba?">
+    <meta property="og:description" content="Libreng real-time lindol alerts. Live earthquake map, magnitude, depth, at epicenter. Walang install needed.">
+    <meta property="og:image" content="https://app.safekaba.com/assets/images/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="tl_PH">
+    <meta property="og:site_name" content="SAFE ka ba?">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Earthquake Alerts Philippines — Lindol Tracker">
+    <meta name="twitter:description" content="Libreng real-time lindol alerts. Live earthquake map, magnitude, depth, epicenter.">
+    <meta name="twitter:image" content="https://app.safekaba.com/assets/images/og-image.png">
+
+    <link rel="icon" type="image/png" href="assets/images/bantay-logo.png">
+    <link rel="apple-touch-icon" href="assets/images/bantay-logo.png">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Ano ang gagawin pag may lindol?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "DROP, COVER, and HOLD ON. Huwag tumakbo palabas. Pumasok sa ilalim ng matibay na mesa o furniture, protektahan ang ulo, at hawakan hanggang tumigil ang pag-uga. Pagkatapos, lumabas at pumunta sa open area."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang PHIVOLCS Earthquake Intensity Scale?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ang PHIVOLCS Earthquake Intensity Scale (PEIS) ay may 10 levels: I (Scarcely Perceptible) hanggang X (Completely Devastating). Intensity IV pataas ay nararamdaman ng karamihan. Intensity VII pataas ay may pinsala sa mga gusali."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Bakit madalas ang lindol sa Pilipinas?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Nasa Ring of Fire ang Pilipinas — ang zone sa Pacific kung saan nagkakabanggaan ang mga tectonic plates. Nasa intersection tayo ng Philippine Sea Plate at Eurasian Plate, kaya araw-araw may mga minor earthquakes. Around 20+ earthquakes ang nararamdaman bawat buwan."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Ano ang pagkakaiba ng magnitude at intensity?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Magnitude ang sukatan ng energy na ni-release ng earthquake (gamit ang seismograph). Intensity naman ang sukatan ng effects sa ibabaw — kung gaano kalakas ang naramdaman at kung gaano kalaki ang pinsala. Isang earthquake ay may isang magnitude lang, pero puwedeng may iba-ibang intensity depende sa lokasyon."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Paano gamitin ang SAFE ka ba? earthquake tracker?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Buksan lang ang app.safekaba.com sa browser. Nasa Earthquakes tab makikita ang live map ng mga recent earthquakes, kasama ang magnitude, depth, at exact location. Real-time updates, walang install needed."
+          }
+        }
+      ]
+    }
+    </script>
+
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-card: #141929;
+            --bg-card-hover: #1c2240;
+            --brand-blue: #0A2463;
+            --brand-yellow: #FFCB00;
+            --brand-green: #1DB954;
+            --text-primary: #f0f0f5;
+            --text-secondary: #9ca3af;
+            --border-color: rgba(255,255,255,0.08);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Rubik', system-ui, -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; }
+        .container { max-width: 720px; margin: 0 auto; padding: 1.5rem; }
+
+        .hero { text-align: center; padding: 3rem 1rem; }
+        .hero h1 { font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .hero h1 span { color: var(--brand-yellow); }
+        .hero p { color: var(--text-secondary); font-size: 1.1rem; max-width: 540px; margin: 0 auto; }
+
+        .cta-btn { display: inline-block; background: var(--brand-yellow); color: #000; font-weight: 700; padding: 0.875rem 2rem; border-radius: 999px; text-decoration: none; font-size: 1.1rem; margin-top: 1.5rem; transition: transform 0.2s; }
+        .cta-btn:hover { transform: scale(1.05); }
+
+        .section { margin-bottom: 3rem; }
+        .section h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--brand-yellow); }
+        .section p { color: var(--text-secondary); margin-bottom: 1rem; }
+
+        .intensity-card { background: var(--bg-card); border-radius: 0.75rem; padding: 1.25rem; margin-bottom: 0.75rem; border-left: 6px solid; }
+        .intensity-card h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .intensity-card p { color: var(--text-secondary); font-size: 0.95rem; margin: 0; }
+        .i-low { border-color: #22c55e; } .i-low h3 { color: #22c55e; }
+        .i-mid { border-color: #eab308; } .i-mid h3 { color: #eab308; }
+        .i-high { border-color: #f97316; } .i-high h3 { color: #f97316; }
+        .i-severe { border-color: #D83121; } .i-severe h3 { color: #D83121; }
+
+        .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+        .feature { background: var(--bg-card); border-radius: 0.75rem; padding: 1.25rem; }
+        .feature h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.375rem; }
+        .feature p { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
+
+        .duck-box { background: var(--bg-card); border-radius: 0.75rem; padding: 1.5rem; margin: 1.5rem 0; border: 1px solid var(--brand-yellow); }
+        .duck-box h3 { color: var(--brand-yellow); font-size: 1.25rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .duck-box ol { padding-left: 1.25rem; color: var(--text-secondary); }
+        .duck-box ol li { margin-bottom: 0.5rem; }
+
+        .footer { text-align: center; padding: 2rem 1rem; color: var(--text-secondary); font-size: 0.875rem; border-top: 1px solid var(--border-color); }
+        .footer a { color: var(--brand-yellow); text-decoration: none; }
+
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 1.5rem; }
+            .feature-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="container">
+    <div class="hero">
+        <h1>Lindol Tracker — <span>Real-Time</span></h1>
+        <p>Nasa Ring of Fire tayo, pre. Kaya huwag kang magulat kung biglang umuga — ang importante, alam mo kung gaano kalakas at kung saan ang epicenter.</p>
+        <a href="https://app.safekaba.com" class="cta-btn">Buksan ang Tracker →</a>
+    </div>
+
+    <div class="section">
+        <h2>Bakit madalas ang lindol sa 'Pinas?</h2>
+        <p>Eto 'yung hindi tinuturo nang maayos sa school: ang Pilipinas ay nasa <strong>intersection ng dalawang tectonic plates</strong> — ang Philippine Sea Plate at ang Eurasian Plate. Dagdag pa ang Philippine Fault na tumatakbo mula Luzon hanggang Mindanao.</p>
+        <p>Translation: literal na nasa fault line ka. May mga minor earthquakes araw-araw — mga 20+ bawat buwan ang nararamdaman. Karamihan hindi mo naman mafi-feel, pero pag dumating 'yung magnitude 6 or 7? Ibang usapan na 'yan.</p>
+        <p>Hindi natin mapipigilan ang lindol. Pero puwede tayong maging ready.</p>
+    </div>
+
+    <div class="feature-grid">
+        <div class="feature">
+            <h3>🗺️ Live Earthquake Map</h3>
+            <p>Makikita mo ang epicenter ng bawat earthquake sa mapa — color-coded by magnitude. Pinch to zoom para makita kung malapit sa'yo.</p>
+        </div>
+        <div class="feature">
+            <h3>📊 Magnitude & Depth</h3>
+            <p>Alam mo ba na shallow earthquakes (less than 70km) ang mas delikado? Makikita mo ang depth ng bawat event para ma-assess ang risk.</p>
+        </div>
+        <div class="feature">
+            <h3>⚡ 15-Minute Updates</h3>
+            <p>Data galing sa USGS at PHIVOLCS, updated every 15 minutes. Real-time na real-time — hindi 'yung "updated 3 hours ago."</p>
+        </div>
+        <div class="feature">
+            <h3>👨‍👩‍👧‍👦 Safety Check</h3>
+            <p>Pagkatapos ng lindol, ang unang tanong ni Nanay: "Okay ka ba?" Gumawa ng group — i-mark mo na "Safe" para hindi siya tumawag ng 47 times.</p>
+        </div>
+    </div>
+
+    <div class="duck-box">
+        <h3>Pag May Lindol: DROP, COVER, HOLD ON</h3>
+        <ol>
+            <li><strong>DROP</strong> — Bumaba ka agad. Huwag tumakbo. Hindi ito horror movie — 'wag mong gayahin 'yung mga tumatakbo palabas.</li>
+            <li><strong>COVER</strong> — Pumasok sa ilalim ng matibay na mesa o desk. Protektahan ang ulo at leeg. Kung walang mesa, takpan ang ulo gamit ang braso at pumuwesto sa tabi ng interior wall.</li>
+            <li><strong>HOLD ON</strong> — Hawakan ang mesa. Huwag bitiwan. Hintayin tumigil ang pag-uga.</li>
+            <li><strong>Pagkatapos</strong> — Lumabas nang mahinahon. Pumunta sa open area, malayo sa gusali. I-check ang pamilya. I-open ang SAFE ka ba? at i-mark na "Safe."</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>Earthquake Intensity Scale — Cheat Sheet</h2>
+        <p>Pag sinabi ng PHIVOLCS na "Intensity V" — ano ba 'yun? Eto ang quick guide para hindi ka na mag-Google habang umaalog ang mesa mo.</p>
+
+        <div class="intensity-card i-low">
+            <h3>Intensity I–II — "Walang naramdaman"</h3>
+            <p>Instruments lang ang naka-detect. Kung naramdaman mo, baka imagination mo lang 'yan. O baka 'yung truck sa labas.</p>
+        </div>
+
+        <div class="intensity-card i-low">
+            <h3>Intensity III–IV — "Ay, lumindol?"</h3>
+            <p>Naramdaman ng karamihan, lalo na pag nasa taas ng building. Umuga ang hanging objects at tumunog ang mga baso. 'Yung level na nagpo-post ka sa Facebook: "may lindol ba?"</p>
+        </div>
+
+        <div class="intensity-card i-mid">
+            <h3>Intensity V–VI — "Oo nga, lumindol!"</h3>
+            <p>Nagising ang mga natutulog. Gumalaw ang mga furniture. Nagka-crack ang ilang walls. 'Yung level na tumakbo ka sa labas (kahit hindi mo dapat ginagawa — remember: DROP, COVER, HOLD ON).</p>
+        </div>
+
+        <div class="intensity-card i-high">
+            <h3>Intensity VII — "Destructive"</h3>
+            <p>Nabali ang mga walls. Bumagsak ang mga ceiling at tiles. Mga tao hindi na makatayo. Ito 'yung level na talagang kailangan mo ng emergency plan.</p>
+        </div>
+
+        <div class="intensity-card i-severe">
+            <h3>Intensity VIII–X — "Very Destructive to Completely Devastating"</h3>
+            <p>Bumagsak ang mga gusali. Ground cracks. Landslides. Tsunamis kung nasa coast. Think: 1990 Baguio earthquake. Hindi ito joke — kailangan mo ng go bag at evacuation plan ngayon na.</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Go Bag Checklist</h2>
+        <p>Ang "go bag" ay isang bag na laging handa sa tabi ng pinto mo. Pag may emergency — grab and go. 'Wag nang mag-isip kung anong dadalhin, ready na lahat.</p>
+        <div style="background: var(--bg-card); border-radius: 0.75rem; padding: 1.25rem; margin-top: 1rem;">
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0; line-height: 2;">
+                ✅ Tubig (3 liters per person minimum)<br>
+                ✅ Canned goods at crackers (3 days worth)<br>
+                ✅ Flashlight at extra batteries<br>
+                ✅ Power bank (fully charged, lagi)<br>
+                ✅ First aid kit<br>
+                ✅ Mga important documents sa plastic bag (ID, passport, birth cert)<br>
+                ✅ Cash (maliit na bills — walang ATM pag brownout)<br>
+                ✅ Extra damit at tsinelas<br>
+                ✅ Gamot (maintenance meds kung meron)<br>
+                ✅ Whistle (para marinig ka pag naipit)<br>
+            </p>
+        </div>
+        <p style="margin-top: 1rem; font-style: italic; color: var(--text-secondary);">"Ang hindi nag-prepare, nag-prepare na mabigo." — Every Tito ever.</p>
+    </div>
+
+    <div class="section" style="text-align: center;">
+        <h2>Ready Ka Na Ba?</h2>
+        <p>Ang SAFE ka ba? ay libre at walang ads — dahil hindi dapat may paywall ang kaligtasan. Buksan sa kahit anong browser. Walang download. Walang signup. Basta bukas, gumagana.</p>
+        <a href="https://app.safekaba.com" class="cta-btn">Buksan ang SAFE ka ba? →</a>
+    </div>
+
+    <div class="footer">
+        <p><a href="https://app.safekaba.com">SAFE ka ba?</a> — Libreng calamity monitoring para sa Pilipinas</p>
+        <p style="margin-top: 0.5rem;">Data: USGS • PHIVOLCS • GDACS (UN/EU) • PAGASA</p>
+    </div>
+</div>
+
+</body>
+</html>
