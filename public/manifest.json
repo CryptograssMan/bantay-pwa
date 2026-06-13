@@ -1,22 +1,25 @@
 {
-  "name": "SAFE ka ba? - Calamity Watch",
+  "name": "SAFE ka ba? — Real-Time Calamity Monitoring",
   "short_name": "SAFE ka ba?",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0A2463",
   "theme_color": "#0A2463",
-  "description": "A PWA for monitoring safety status and alerts.",
+  "description": "Libreng real-time calamity monitoring para sa buong Pilipinas. Live earthquake alerts, typhoon tracking, flood warnings, at safety updates.",
+  "lang": "tl",
+  "categories": ["utilities", "weather", "news"],
   "icons": [
     {
-      "src": "https://app.safekaba.com/assets/images/bantay-logo.png",
+      "src": "assets/images/bantay-logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://app.safekaba.com/assets/images/bantay-logo.png",
+      "src": "assets/images/bantay-logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
-

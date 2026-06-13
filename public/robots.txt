@@ -1,0 +1,7 @@
+# SAFE ka ba? (Bantay PWA)
+# https://app.safekaba.com
+
+User-agent: *
+Allow: /
+
+Sitemap: https://app.safekaba.com/sitemap.xml
