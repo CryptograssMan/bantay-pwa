@@ -217,13 +217,27 @@ def enrich_with_pagasa(typhoons):
         resp.raise_for_status()
         soup = BeautifulSoup(resp.content, 'html.parser')
 
-        # Find bulletin links
+        # Find bulletin links — STRICT: only actual numbered bulletins, not nav links
         content = soup.find('div', id='content-left-info') or soup
         bulletin_links = []
-        for a in content.select('ul > li > a, a'):
+        for a in content.select('a[href]'):
             href = a.get('href', '')
             text = a.get_text(strip=True).lower()
-            if href and ('bulletin' in text or 'typhoon' in text or 'tropical' in text):
+            # Must be an actual bulletin link (contains a bulletin number or date pattern)
+            # Real bulletins: "Severe Weather Bulletin #5" or links with /severe-weather-bulletin/ + sub-path
+            is_real_bulletin = (
+                re.search(r'bulletin\s*#?\s*\d+', text) or
+                re.search(r'severe-weather-bulletin/\w+', href) or
+                (re.search(r'bulletin.*(?:no|number|#)\s*\d', text, re.IGNORECASE))
+            )
+            # Reject nav links (they point to category pages, not actual bulletins)
+            is_nav_link = (
+                href.rstrip('/') == PAGASA_BULLETIN_URL.rstrip('/') or
+                '/tropical-cyclone-bulletin' == href.rstrip('/').split('pagasa.dost.gov.ph')[-1] or
+                'publications' in href or 'annual-report' in href or
+                'preliminary-report' in href or 'agriculture' in href
+            )
+            if is_real_bulletin and not is_nav_link:
                 url = href if href.startswith('http') else f"{PAGASA_BASE}{href}"
                 if url not in bulletin_links:
                     bulletin_links.append(url)
@@ -236,13 +250,16 @@ def enrich_with_pagasa(typhoons):
             signals, pagasa_name, extras = parse_pagasa_signals(url)
             if not pagasa_name or pagasa_name == "Unknown":
                 continue
+            if not is_valid_typhoon_name(pagasa_name):
+                print(f"  Skipping invalid name: '{pagasa_name}'")
+                continue
 
             # Match to a GDACS typhoon by name (fuzzy)
             matched = match_typhoon(typhoons, pagasa_name)
             if matched:
                 matched["signalLevels"] = signals
                 matched["name"] = pagasa_name  # Use Filipino name
-                if extras.get("internationalName"):
+                if extras.get("internationalName") and is_valid_typhoon_name(extras["internationalName"]):
                     matched["internationalName"] = extras["internationalName"]
                 if extras.get("rainfallWarning"):
                     matched["rainfallWarning"] = extras["rainfallWarning"]
@@ -251,30 +268,78 @@ def enrich_with_pagasa(typhoons):
                 matched["sourceUrl"] = url
                 print(f"  ✔ Enriched '{matched['name']}' with TCWS signals")
             else:
-                # PAGASA has a typhoon GDACS doesn't — add it
-                print(f"  + Adding PAGASA-only typhoon: {pagasa_name}")
-                typhoons.append({
-                    "name": pagasa_name,
-                    "internationalName": extras.get("internationalName", ""),
-                    "category": extras.get("category", ""),
-                    "isActive": True,
-                    "lastUpdated": datetime.now(timezone.utc).isoformat(),
-                    "currentLocation": extras.get("location", {"lat": None, "lon": None}),
-                    "windSpeedKph": extras.get("windSpeedKph", 0),
-                    "gustinessKph": extras.get("gustinessKph", 0),
-                    "movementDirection": extras.get("movementDirection", ""),
-                    "movementSpeedKph": 0,
-                    "forecastTrack": [],
-                    "signalLevels": signals,
-                    "rainfallWarning": extras.get("rainfallWarning", ""),
-                    "stormSurgeWarning": extras.get("stormSurgeWarning", ""),
-                    "alertLevel": "Orange",
-                    "sourceUrl": url,
-                    "source": "PAGASA",
-                })
+                # PAGASA has a typhoon GDACS doesn't — add it (only if valid)
+                if extras.get("windSpeedKph", 0) > 0 or any(signals[s] for s in signals):
+                    print(f"  + Adding PAGASA-only typhoon: {pagasa_name}")
+                    typhoons.append({
+                        "name": pagasa_name,
+                        "internationalName": extras.get("internationalName", ""),
+                        "category": extras.get("category", ""),
+                        "isActive": True,
+                        "lastUpdated": datetime.now(timezone.utc).isoformat(),
+                        "currentLocation": extras.get("location", {"lat": None, "lon": None}),
+                        "windSpeedKph": extras.get("windSpeedKph", 0),
+                        "gustinessKph": extras.get("gustinessKph", 0),
+                        "movementDirection": extras.get("movementDirection", ""),
+                        "movementSpeedKph": 0,
+                        "forecastTrack": [],
+                        "signalLevels": signals,
+                        "rainfallWarning": extras.get("rainfallWarning", ""),
+                        "stormSurgeWarning": extras.get("stormSurgeWarning", ""),
+                        "alertLevel": "Orange",
+                        "sourceUrl": url,
+                        "source": "PAGASA",
+                    })
+                else:
+                    print(f"  Skipping '{pagasa_name}' — no signal data or wind speed")
 
     except Exception as e:
         print(f"  [PAGASA] Enrichment failed (non-fatal): {e}")
+
+
+def is_valid_typhoon_name(name):
+    """Reject names that are clearly nav text, common words, or too short."""
+    if not name or len(name) < 3:
+        return False
+    invalid_names = {
+        'and', 'the', 'for', 'about', 'climate', 'annual', 'report', 'forecast',
+        'warning', 'advisory', 'bulletin', 'tropical', 'cyclone', 'typhoon',
+        'storm', 'depression', 'publications', 'monitoring', 'information',
+        'habagat', 'amihan', 'monsoon', 'outlook', 'weather', 'marine',
+        'aviation', 'general', 'daily', 'weekly', 'monthly', 'associated',
+        'agriculture', 'preliminary', 'potential', 'temperature', 'rainfall',
+    }
+    return name.lower().strip() not in invalid_names
+
+
+# Known PAGASA navigation text that pollutes scraping results
+PAGASA_NAV_JUNK = [
+    "Tropical Cyclone Publications", "Annual Report on Philippine Tropical Cyclones",
+    "Tropical Cyclone Preliminary Report", "About Tropical Cyclone",
+    "Climate Monitoring", "Daily Rainfall and Temperature",
+    "Tropical Cyclone Warning for Agriculture", "TC-Threat Potential Forecast",
+    "Tropical Cyclone Associated Rainfall", "Tropical Cyclone Advisory",
+    "Tropical Cyclone Bulletin", "Warning for Shipping", "Forecast Storm Surge",
+    "Weather Advisory", "Aviation", "SIGMET", "METAR", "Terminal Aerodome",
+    "Marine", "High Seas", "Gale Warning", "Heat Index", "Flood Information",
+    "Dam Information", "Hydromet Data", "Sub Seasonal",
+]
+
+
+def strip_pagasa_nav_text(text):
+    """Remove known PAGASA navigation menu text from scraped content."""
+    for junk in PAGASA_NAV_JUNK:
+        text = text.replace(junk, "")
+    # Also strip repeated menu blocks (PAGASA renders nav twice)
+    lines = text.split("\n")
+    seen = set()
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped and stripped not in seen and len(stripped) > 5:
+            cleaned.append(line)
+            seen.add(stripped)
+    return "\n".join(cleaned)
 
 
 def parse_pagasa_signals(url):
@@ -287,8 +352,25 @@ def parse_pagasa_signals(url):
         resp = requests.get(url, headers=HEADERS, timeout=15)
         resp.raise_for_status()
         soup = BeautifulSoup(resp.content, 'html.parser')
+
+        # Remove nav elements before extracting text
         content = soup.find('div', id='content-left-info') or soup
+        for nav in content.find_all(['nav', 'header', 'footer']):
+            nav.decompose()
+        for menu in content.find_all(class_=re.compile(r'menu|nav|sidebar|breadcrumb', re.IGNORECASE)):
+            menu.decompose()
+
         text = content.get_text("\n", strip=True)
+        text = strip_pagasa_nav_text(text)
+
+        # Verify this page has actual bulletin content (not just a nav page)
+        has_bulletin_content = bool(re.search(
+            r'BULLETIN\s*(?:NO|#|NUMBER)\s*\.?\s*\d+|TCWS|Wind\s+Signal|sustained\s+winds',
+            text, re.IGNORECASE
+        ))
+        if not has_bulletin_content:
+            print(f"  [PAGASA parse] No bulletin content found at {url}")
+            return signals, "Unknown", extras
 
         # Name
         for pattern in [
@@ -302,7 +384,7 @@ def parse_pagasa_signals(url):
 
         # International name
         m = re.search(r'\(([A-Z][a-z]+)\)', text)
-        if m:
+        if m and is_valid_typhoon_name(m.group(1)):
             extras["internationalName"] = m.group(1).title()
 
         # Category
@@ -331,12 +413,17 @@ def parse_pagasa_signals(url):
         # Rainfall
         m = re.search(r'(?:RAINFALL)[:\s]*([\s\S]*?)(?=STORM\s+SURGE|FLOODING|TRACK|$)', text, re.IGNORECASE)
         if m:
-            extras["rainfallWarning"] = m.group(1).strip()[:500]
+            warning_text = m.group(1).strip()[:500]
+            # Reject if it's just nav menu junk
+            if not any(junk.lower() in warning_text.lower() for junk in ["Publications", "Annual Report", "Preliminary Report", "Agriculture"]):
+                extras["rainfallWarning"] = warning_text
 
         # Storm surge
         m = re.search(r'STORM\s+SURGE[:\s]*([\s\S]*?)(?=RAINFALL|TRACK|$)', text, re.IGNORECASE)
         if m:
-            extras["stormSurgeWarning"] = m.group(1).strip()[:500]
+            warning_text = m.group(1).strip()[:500]
+            if not any(junk.lower() in warning_text.lower() for junk in ["Publications", "Annual Report", "Preliminary Report", "Agriculture"]):
+                extras["stormSurgeWarning"] = warning_text
 
         # TCWS Signal levels
         for i in range(5, 0, -1):
