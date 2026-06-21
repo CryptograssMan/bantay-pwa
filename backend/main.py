@@ -100,8 +100,8 @@ def fetch_gdacs_cyclones():
             typhoon = {
                 "gdacsId": event_id,
                 "name": clean_tc_name(event_name),
-                "internationalName": "",
-                "category": severity.get("severitytext", "Tropical Cyclone"),
+                "internationalName": clean_tc_name(event_name),
+                "category": clean_gdacs_category(severity.get("severitytext", ""), parse_wind_speed(severity)),
                 "isActive": True,
                 "lastUpdated": datetime.now(timezone.utc).isoformat(),
                 "currentLocation": {"lat": lat, "lon": lon},
@@ -181,6 +181,8 @@ def clean_tc_name(raw_name):
     # Take first word (Filipino name), strip parens
     parts = raw.split("(")
     name = parts[0].strip().strip('"').strip("'").title()
+    # Strip GDACS numeric suffixes like "-26" or "_07"
+    name = re.sub(r'[-_]\d+$', '', name).strip()
     return name if name else "Unknown"
 
 
@@ -198,6 +200,22 @@ def parse_wind_speed(severity_data):
         return int(float(val)) if val else 0
     except (ValueError, TypeError):
         return 0
+
+
+def clean_gdacs_category(severity_text, wind_kph=0):
+    """Convert raw GDACS severity text to a clean category name."""
+    st = (severity_text or "").lower()
+    if "super typhoon" in st or wind_kph >= 185:
+        return "Super Typhoon"
+    if "typhoon" in st or "hurricane" in st or wind_kph >= 118:
+        return "Typhoon"
+    if "severe tropical storm" in st or wind_kph >= 89:
+        return "Severe Tropical Storm"
+    if "tropical storm" in st or wind_kph >= 62:
+        return "Tropical Storm"
+    if "tropical depression" in st or wind_kph > 0:
+        return "Tropical Depression"
+    return "Tropical Cyclone"
 
 
 # ════════════════════════════════════════════════════════════
@@ -270,17 +288,23 @@ def enrich_with_pagasa(typhoons):
                 print(f"  Skipping invalid name: '{pagasa_name}'")
                 continue
 
-            # Match to a GDACS typhoon by name (fuzzy)
-            matched = match_typhoon(typhoons, pagasa_name)
+            # Match to a GDACS typhoon by name or coordinate proximity
+            matched = match_typhoon(typhoons, pagasa_name, extras.get("location"))
             if matched:
                 matched["signalLevels"] = signals
                 matched["name"] = pagasa_name  # Use Filipino name
                 if extras.get("internationalName") and is_valid_typhoon_name(extras["internationalName"]):
                     matched["internationalName"] = extras["internationalName"]
+                if extras.get("category"):
+                    matched["category"] = extras["category"]  # PAGASA category is cleaner
                 if extras.get("rainfallWarning"):
                     matched["rainfallWarning"] = extras["rainfallWarning"]
                 if extras.get("stormSurgeWarning"):
                     matched["stormSurgeWarning"] = extras["stormSurgeWarning"]
+                if extras.get("windSpeedKph"):
+                    matched["windSpeedKph"] = extras["windSpeedKph"]
+                if extras.get("gustinessKph"):
+                    matched["gustinessKph"] = extras["gustinessKph"]
                 matched["sourceUrl"] = url
                 print(f"  ✔ Enriched '{matched['name']}' with TCWS signals")
             else:
@@ -459,8 +483,8 @@ def parse_pagasa_signals(url):
     return signals, name, extras
 
 
-def match_typhoon(typhoons, pagasa_name):
-    """Match a PAGASA name to a GDACS typhoon (fuzzy name match)."""
+def match_typhoon(typhoons, pagasa_name, pagasa_location=None):
+    """Match a PAGASA name to a GDACS typhoon (fuzzy name match + coordinate proximity)."""
     pn = pagasa_name.lower().strip()
     for t in typhoons:
         # Direct match on name or international name
@@ -473,6 +497,22 @@ def match_typhoon(typhoons, pagasa_name):
         gdacs_name = t["name"].lower()
         if pn in gdacs_name or gdacs_name in pn:
             return t
+
+    # Fallback: coordinate proximity match (same storm, different names)
+    # e.g., GDACS "Mekkhala" at 16.5°N = PAGASA "Francisco" at 16.1°N
+    if pagasa_location and pagasa_location.get("lat") and pagasa_location.get("lon"):
+        plat, plon = pagasa_location["lat"], pagasa_location["lon"]
+        for t in typhoons:
+            tloc = t.get("currentLocation", {})
+            tlat, tlon = tloc.get("lat"), tloc.get("lon")
+            if tlat and tlon:
+                # Within ~3 degrees (~330 km) — generous to account for
+                # time lag between GDACS and PAGASA position reports
+                if abs(plat - tlat) < 3.0 and abs(plon - tlon) < 3.0:
+                    print(f"  ⚡ Coordinate match: PAGASA '{pagasa_name}' ≈ GDACS '{t['name']}' "
+                          f"({plat:.1f}°N,{plon:.1f}°E ≈ {tlat:.1f}°N,{tlon:.1f}°E)")
+                    return t
+
     return None
 
 
