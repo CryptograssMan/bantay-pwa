@@ -62,7 +62,9 @@ def fetch_gdacs_cyclones():
         params = {
             "eventtype": "TC",
             "alertlevel": "Green;Orange;Red",
-            "country": "PHL",
+            # NOTE: Do NOT use "country": "PHL" — GDACS tags storms as affecting
+            # PHL only when they're very close or signals are raised. Our own
+            # geo bounding box (PH_LAT/LON_MIN/MAX) handles proximity filtering.
         }
         resp = requests.get(GDACS_EVENTS_URL, params=params, headers=HEADERS, timeout=20)
         resp.raise_for_status()
@@ -241,6 +243,20 @@ def enrich_with_pagasa(typhoons):
                 url = href if href.startswith('http') else f"{PAGASA_BASE}{href}"
                 if url not in bulletin_links:
                     bulletin_links.append(url)
+
+        if not bulletin_links:
+            # FALLBACK: PAGASA listing page loads bulletin links via JavaScript,
+            # so BeautifulSoup can't see them. Try direct URL patterns instead.
+            print("  No links found on listing page (JS-rendered). Trying direct URLs...")
+            for i in range(1, 4):  # Try up to 3 active typhoon slots
+                direct_url = f"{PAGASA_BULLETIN_URL}/{i}"
+                try:
+                    head = requests.head(direct_url, headers=HEADERS, timeout=10, allow_redirects=True)
+                    if head.status_code == 200:
+                        bulletin_links.append(direct_url)
+                        print(f"    Found active bulletin at {direct_url}")
+                except Exception:
+                    pass
 
         if not bulletin_links:
             print("  No active bulletins found on PAGASA.")
