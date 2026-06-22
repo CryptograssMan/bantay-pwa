@@ -13,14 +13,19 @@ Deploy: Cloud Run + Cloud Scheduler (every 15 min)
 """
 
 import requests
-from bs4 import BeautifulSoup
 import firebase_admin
 from firebase_admin import credentials, firestore
 import json
 import re
 import traceback
 from datetime import datetime, timezone
+from io import BytesIO
 import os
+
+try:
+    from pypdf import PdfReader
+except ImportError:  # pragma: no cover
+    PdfReader = None
 
 # ── Firebase Init ───────────────────────────────────────────
 
@@ -223,118 +228,171 @@ def clean_gdacs_category(severity_text, wind_kph=0):
 # ════════════════════════════════════════════════════════════
 
 PAGASA_BASE = "https://www.pagasa.dost.gov.ph"
-PAGASA_BULLETIN_URL = f"{PAGASA_BASE}/tropical-cyclone/severe-weather-bulletin"
+# Open directory index of every Tropical Cyclone Bulletin PDF, with timestamps.
+# This is PAGASA's canonical, live source. The public-facing bulletin page is
+# JavaScript-rendered (invisible to scrapers) and the legacy "latest" mirrors
+# (tamss/weather/bulletin.pdf, tcadvisory.pdf) are frozen on old storms — so we
+# read the directory index and parse the actual bulletin PDFs instead.
+PAGASA_BULLETIN_INDEX = "https://pubfiles.pagasa.dost.gov.ph/tamss/weather/bulletin/"
+
+# Filenames look like: TCB#10_francisco.pdf  (the '#' is URL-encoded as %23)
+_BULLETIN_HREF_RE = re.compile(r'TCB%23(\d+)_([A-Za-z]+)\.pdf', re.IGNORECASE)
+_INDEX_DATE_RE = re.compile(r'(\d{2}-[A-Za-z]{3}-\d{4}\s+\d{2}:\d{2})')
+
+
+def _fetch_pdf_text(url):
+    """Download a PDF and extract all text."""
+    if PdfReader is None:
+        raise RuntimeError("pypdf not installed")
+    resp = requests.get(url, headers=HEADERS, timeout=30)
+    resp.raise_for_status()
+    reader = PdfReader(BytesIO(resp.content))
+    return "\n".join((page.extract_text() or "") for page in reader.pages)
+
+
+def list_active_bulletins(max_age_hours=30):
+    """
+    Read PAGASA's bulletin directory index and return the latest bulletin PDF
+    per *active* storm (one modified within max_age_hours).
+
+    Returns: list of {"name", "number", "url", "modified"} sorted by recency.
+    """
+    resp = requests.get(PAGASA_BULLETIN_INDEX, headers=HEADERS, timeout=20)
+    resp.raise_for_status()
+    html = resp.text
+    now = datetime.now(timezone.utc)
+
+    # Parse the autoindex line by line so each filename pairs with its own date.
+    latest = {}  # storm -> (number, url, datetime|None)
+    for line in re.split(r'<br\s*/?>|\n', html):
+        fm = _BULLETIN_HREF_RE.search(line)
+        if not fm:
+            continue
+        num = int(fm.group(1))
+        storm = fm.group(2).lower()
+        if storm == "unknown":
+            continue
+        dm = _INDEX_DATE_RE.search(line)
+        dt = None
+        if dm:
+            try:
+                dt = datetime.strptime(dm.group(1), "%d-%b-%Y %H:%M").replace(tzinfo=timezone.utc)
+            except ValueError:
+                dt = None
+        # Skip storms whose latest bulletin is clearly stale (old, dissipated)
+        if dt is not None and (now - dt).total_seconds() > max_age_hours * 3600:
+            continue
+        url = PAGASA_BULLETIN_INDEX + f"TCB%23{num}_{storm}.pdf"
+        if storm not in latest or num > latest[storm][0]:
+            latest[storm] = (num, url, dt)
+
+    bulletins = [
+        {"name": s.title(), "number": n, "url": u,
+         "modified": (d.isoformat() if d else "")}
+        for s, (n, u, d) in latest.items()
+    ]
+    bulletins.sort(key=lambda b: b["modified"], reverse=True)
+    return bulletins
 
 
 def enrich_with_pagasa(typhoons):
     """
-    Best-effort enrichment: scrape PAGASA for TCWS signal levels.
-    If scraping fails, typhoons still have GDACS data. Non-fatal.
+    Authoritative enrichment from PAGASA Tropical Cyclone Bulletin PDFs:
+    TCWS signal levels, official intensity, category, position, movement.
+    Overlays GDACS data (which lags badly on intensity and has no signals).
+    Non-fatal: on any failure, typhoons retain their GDACS data.
     """
-    print("\n[PAGASA] Attempting signal level enrichment...")
+    print("\n[PAGASA] Reading bulletin directory index...")
     try:
-        resp = requests.get(PAGASA_BULLETIN_URL, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.content, 'html.parser')
-
-        # Find bulletin links — STRICT: only actual numbered bulletins, not nav links
-        content = soup.find('div', id='content-left-info') or soup
-        bulletin_links = []
-        for a in content.select('a[href]'):
-            href = a.get('href', '')
-            text = a.get_text(strip=True).lower()
-            # Must be an actual bulletin link (contains a bulletin number or date pattern)
-            # Real bulletins: "Severe Weather Bulletin #5" or links with /severe-weather-bulletin/ + sub-path
-            is_real_bulletin = (
-                re.search(r'bulletin\s*#?\s*\d+', text) or
-                re.search(r'severe-weather-bulletin/\w+', href) or
-                (re.search(r'bulletin.*(?:no|number|#)\s*\d', text, re.IGNORECASE))
-            )
-            # Reject nav links (they point to category pages, not actual bulletins)
-            is_nav_link = (
-                href.rstrip('/') == PAGASA_BULLETIN_URL.rstrip('/') or
-                '/tropical-cyclone-bulletin' == href.rstrip('/').split('pagasa.dost.gov.ph')[-1] or
-                'publications' in href or 'annual-report' in href or
-                'preliminary-report' in href or 'agriculture' in href
-            )
-            if is_real_bulletin and not is_nav_link:
-                url = href if href.startswith('http') else f"{PAGASA_BASE}{href}"
-                if url not in bulletin_links:
-                    bulletin_links.append(url)
-
-        if not bulletin_links:
-            # FALLBACK: PAGASA listing page loads bulletin links via JavaScript,
-            # so BeautifulSoup can't see them. Try direct URL patterns instead.
-            print("  No links found on listing page (JS-rendered). Trying direct URLs...")
-            for i in range(1, 4):  # Try up to 3 active typhoon slots
-                direct_url = f"{PAGASA_BULLETIN_URL}/{i}"
-                try:
-                    head = requests.head(direct_url, headers=HEADERS, timeout=10, allow_redirects=True)
-                    if head.status_code == 200:
-                        bulletin_links.append(direct_url)
-                        print(f"    Found active bulletin at {direct_url}")
-                except Exception:
-                    pass
-
-        if not bulletin_links:
-            print("  No active bulletins found on PAGASA.")
+        bulletins = list_active_bulletins()
+        if not bulletins:
+            print("  No recent PAGASA bulletins in the index.")
             return
 
-        for url in bulletin_links[:3]:
-            signals, pagasa_name, extras = parse_pagasa_signals(url)
-            if not pagasa_name or pagasa_name == "Unknown":
-                continue
-            if not is_valid_typhoon_name(pagasa_name):
-                print(f"  Skipping invalid name: '{pagasa_name}'")
+        for b in bulletins:
+            print(f"  Active bulletin: {b['name']} TCB#{b['number']} ({b['modified'] or 'no date'})")
+            try:
+                text = _fetch_pdf_text(b["url"])
+            except Exception as e:
+                print(f"    ✖ Could not fetch/parse PDF: {e}")
                 continue
 
-            # Match to a GDACS typhoon by name or coordinate proximity
-            matched = match_typhoon(typhoons, pagasa_name, extras.get("location"))
+            parsed = parse_bulletin_pdf(text)
+            pname = parsed.get("name") or b["name"]
+            if not is_valid_typhoon_name(pname):
+                print(f"    Skipping invalid name: '{pname}'")
+                continue
+            parsed["name"] = pname
+
+            matched = match_typhoon(typhoons, pname, parsed.get("location"))
             if matched:
-                matched["signalLevels"] = signals
-                matched["name"] = pagasa_name  # Use Filipino name
-                if extras.get("internationalName") and is_valid_typhoon_name(extras["internationalName"]):
-                    matched["internationalName"] = extras["internationalName"]
-                if extras.get("category"):
-                    matched["category"] = extras["category"]  # PAGASA category is cleaner
-                if extras.get("rainfallWarning"):
-                    matched["rainfallWarning"] = extras["rainfallWarning"]
-                if extras.get("stormSurgeWarning"):
-                    matched["stormSurgeWarning"] = extras["stormSurgeWarning"]
-                if extras.get("windSpeedKph"):
-                    matched["windSpeedKph"] = extras["windSpeedKph"]
-                if extras.get("gustinessKph"):
-                    matched["gustinessKph"] = extras["gustinessKph"]
-                matched["sourceUrl"] = url
-                print(f"  ✔ Enriched '{matched['name']}' with TCWS signals")
+                _overlay_pagasa(matched, parsed, b)
+                print(f"    ✔ Enriched '{pname}' — {matched.get('category')} "
+                      f"{matched.get('windSpeedKph')} km/h, highest signal "
+                      f"{parsed.get('highestSignal', 0)}")
             else:
-                # PAGASA has a typhoon GDACS doesn't — add it (only if valid)
-                if extras.get("windSpeedKph", 0) > 0 or any(signals[s] for s in signals):
-                    print(f"  + Adding PAGASA-only typhoon: {pagasa_name}")
-                    typhoons.append({
-                        "name": pagasa_name,
-                        "internationalName": extras.get("internationalName", ""),
-                        "category": extras.get("category", ""),
-                        "isActive": True,
-                        "lastUpdated": datetime.now(timezone.utc).isoformat(),
-                        "currentLocation": extras.get("location", {"lat": None, "lon": None}),
-                        "windSpeedKph": extras.get("windSpeedKph", 0),
-                        "gustinessKph": extras.get("gustinessKph", 0),
-                        "movementDirection": extras.get("movementDirection", ""),
-                        "movementSpeedKph": 0,
-                        "forecastTrack": [],
-                        "signalLevels": signals,
-                        "rainfallWarning": extras.get("rainfallWarning", ""),
-                        "stormSurgeWarning": extras.get("stormSurgeWarning", ""),
-                        "alertLevel": "Orange",
-                        "sourceUrl": url,
-                        "source": "PAGASA",
-                    })
-                else:
-                    print(f"  Skipping '{pagasa_name}' — no signal data or wind speed")
+                print(f"    + Adding PAGASA-only storm: {pname}")
+                typhoons.append(_build_pagasa_typhoon(parsed, b))
 
     except Exception as e:
         print(f"  [PAGASA] Enrichment failed (non-fatal): {e}")
+        traceback.print_exc()
+
+
+# Fields copied from a parsed bulletin onto a matched GDACS typhoon.
+_PAGASA_OVERLAY_FIELDS = (
+    "internationalName", "category", "windSpeedKph", "gustinessKph",
+    "pressureHpa", "movementDirection", "movementSpeedKph",
+    "signalLevels", "highestSignal", "headline", "bulletinNumber",
+)
+
+
+def _overlay_pagasa(typhoon, parsed, bulletin):
+    """Overlay authoritative PAGASA fields onto a GDACS-sourced typhoon."""
+    typhoon["name"] = parsed["name"]
+    for k in _PAGASA_OVERLAY_FIELDS:
+        v = parsed.get(k)
+        if v not in (None, "", [], {}):
+            typhoon[k] = v
+    if parsed.get("location"):
+        typhoon["currentLocation"] = parsed["location"]
+    # Always set highestSignal so the UI never shows a stale/blank signal.
+    typhoon["highestSignal"] = parsed.get("highestSignal", 0)
+    typhoon.setdefault("signalLevels", parsed.get("signalLevels",
+                       {"1": [], "2": [], "3": [], "4": [], "5": []}))
+    typhoon["sourceUrl"] = bulletin["url"]
+    typhoon["pagasaIssued"] = parsed.get("issued", "")
+    typhoon["pagasaBulletin"] = bulletin["number"]
+    typhoon["source"] = "GDACS+PAGASA"
+    typhoon["lastUpdated"] = datetime.now(timezone.utc).isoformat()
+
+
+def _build_pagasa_typhoon(parsed, bulletin):
+    """Construct a typhoon document from a PAGASA bulletin alone (GDACS missed it)."""
+    sig = parsed.get("highestSignal", 0)
+    alert = "Red" if sig >= 4 else "Orange" if sig >= 1 else "Green"
+    return {
+        "name": parsed["name"],
+        "internationalName": parsed.get("internationalName", ""),
+        "category": parsed.get("category", ""),
+        "isActive": True,
+        "lastUpdated": datetime.now(timezone.utc).isoformat(),
+        "currentLocation": parsed.get("location", {"lat": None, "lon": None}),
+        "windSpeedKph": parsed.get("windSpeedKph", 0),
+        "gustinessKph": parsed.get("gustinessKph", 0),
+        "pressureHpa": parsed.get("pressureHpa", 0),
+        "movementDirection": parsed.get("movementDirection", ""),
+        "movementSpeedKph": parsed.get("movementSpeedKph", 0),
+        "forecastTrack": [],
+        "signalLevels": parsed.get("signalLevels", {"1": [], "2": [], "3": [], "4": [], "5": []}),
+        "highestSignal": sig,
+        "headline": parsed.get("headline", ""),
+        "bulletinNumber": parsed.get("bulletinNumber"),
+        "pagasaIssued": parsed.get("issued", ""),
+        "alertLevel": alert,
+        "sourceUrl": bulletin["url"],
+        "source": "PAGASA",
+    }
 
 
 def is_valid_typhoon_name(name):
@@ -352,135 +410,103 @@ def is_valid_typhoon_name(name):
     return name.lower().strip() not in invalid_names
 
 
-# Known PAGASA navigation text that pollutes scraping results
-PAGASA_NAV_JUNK = [
-    "Tropical Cyclone Publications", "Annual Report on Philippine Tropical Cyclones",
-    "Tropical Cyclone Preliminary Report", "About Tropical Cyclone",
-    "Climate Monitoring", "Daily Rainfall and Temperature",
-    "Tropical Cyclone Warning for Agriculture", "TC-Threat Potential Forecast",
-    "Tropical Cyclone Associated Rainfall", "Tropical Cyclone Advisory",
-    "Tropical Cyclone Bulletin", "Warning for Shipping", "Forecast Storm Surge",
-    "Weather Advisory", "Aviation", "SIGMET", "METAR", "Terminal Aerodome",
-    "Marine", "High Seas", "Gale Warning", "Heat Index", "Flood Information",
-    "Dam Information", "Hydromet Data", "Sub Seasonal",
-]
+def parse_bulletin_pdf(text):
+    """
+    Parse a PAGASA Tropical Cyclone Bulletin PDF (extracted text) into a dict:
+    name, internationalName, category, issued, headline, location, windSpeedKph,
+    gustinessKph, pressureHpa, movementDirection, movementSpeedKph,
+    signalLevels {1..5: [areas]}, highestSignal, bulletinNumber.
 
+    Whitespace-tolerant: works across PDF text extractors that may collapse or
+    insert newlines differently.
+    """
+    out = {}
 
-def strip_pagasa_nav_text(text):
-    """Remove known PAGASA navigation menu text from scraped content."""
-    for junk in PAGASA_NAV_JUNK:
-        text = text.replace(junk, "")
-    # Also strip repeated menu blocks (PAGASA renders nav twice)
-    lines = text.split("\n")
-    seen = set()
-    cleaned = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped and stripped not in seen and len(stripped) > 5:
-            cleaned.append(line)
-            seen.add(stripped)
-    return "\n".join(cleaned)
+    # Bulletin number
+    m = re.search(r'BULLETIN\s+NR\.?\s*(\d+)', text, re.I)
+    if m:
+        out["bulletinNumber"] = int(m.group(1))
 
+    # Name + category + international name, e.g. "Super Typhoon FRANCISCO (MEKKHALA)"
+    m = re.search(
+        r'(Super Typhoon|Typhoon|Severe Tropical Storm|Tropical Storm|Tropical Depression)\s+'
+        r'([A-Z][A-Z\-]+)\s*\(([A-Z][A-Z\-]+)\)',
+        text)
+    if m:
+        out["category"] = m.group(1).title()
+        out["name"] = m.group(2).title()
+        out["internationalName"] = m.group(3).title()
+    else:
+        # No international name in parens (e.g. locally-formed storm)
+        m = re.search(
+            r'(Super Typhoon|Typhoon|Severe Tropical Storm|Tropical Storm|Tropical Depression)\s+'
+            r'([A-Z][A-Z\-]{2,})', text)
+        if m:
+            out["category"] = m.group(1).title()
+            out["name"] = m.group(2).title()
 
-def parse_pagasa_signals(url):
-    """Parse TCWS signal levels from a PAGASA bulletin page."""
+    # Issued timestamp
+    m = re.search(r'Issued at\s+([\d:]+\s*[AP]M),\s*(\d{1,2}\s+\w+\s+\d{4})', text)
+    if m:
+        out["issued"] = f"{m.group(1)}, {m.group(2)}"
+
+    # Headline (the all-caps sentence right before "Location of Center")
+    m = re.search(r'Page 1 of \d+\s+(.+?)\s+Location of Center', text, re.S)
+    if m:
+        out["headline"] = re.sub(r'\s+', ' ', m.group(1)).strip().strip('"\u201c\u201d')
+
+    # Center location — first (lat°N, lon°E) pair
+    m = re.search(r'([\d.]+)\s*°?\s*N,\s*([\d.]+)\s*°?\s*E', text)
+    if m:
+        try:
+            out["location"] = {"lat": float(m.group(1)), "lon": float(m.group(2))}
+        except ValueError:
+            pass
+
+    # Intensity
+    m = re.search(r'(?:Maximum\s+)?sustained\s+winds\s+of\s+(\d{2,3})\s*km/h', text, re.I)
+    if m:
+        out["windSpeedKph"] = int(m.group(1))
+    m = re.search(r'gustiness\s+of\s+up\s+to\s+(\d{2,3})\s*km/h', text, re.I)
+    if m:
+        out["gustinessKph"] = int(m.group(1))
+    m = re.search(r'central\s+pressure\s+of\s+(\d{3,4})\s*hPa', text, re.I)
+    if m:
+        out["pressureHpa"] = int(m.group(1))
+
+    # Movement (line after "Present Movement")
+    m = re.search(r'Present Movement\s+(.+?)(?:\s*Extent|\s*TROPICAL|\s*TRACK)', text, re.S)
+    if m:
+        mv = re.sub(r'\s+', ' ', m.group(1)).strip()
+        sm = re.match(r'(.+?)\s+at\s+(\d+)\s*km/h', mv)
+        if sm:
+            out["movementDirection"] = sm.group(1).strip()
+            out["movementSpeedKph"] = int(sm.group(2))
+        else:
+            out["movementDirection"] = mv  # e.g. "West northwestward Slowly"
+
+    # TCWS signal levels
     signals = {"1": [], "2": [], "3": [], "4": [], "5": []}
-    name = "Unknown"
-    extras = {}
-
-    try:
-        resp = requests.get(url, headers=HEADERS, timeout=15)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.content, 'html.parser')
-
-        # Remove nav elements before extracting text
-        content = soup.find('div', id='content-left-info') or soup
-        for nav in content.find_all(['nav', 'header', 'footer']):
-            nav.decompose()
-        for menu in content.find_all(class_=re.compile(r'menu|nav|sidebar|breadcrumb', re.IGNORECASE)):
-            menu.decompose()
-
-        text = content.get_text("\n", strip=True)
-        text = strip_pagasa_nav_text(text)
-
-        # Verify this page has actual bulletin content (not just a nav page)
-        has_bulletin_content = bool(re.search(
-            r'BULLETIN\s*(?:NO|#|NUMBER)\s*\.?\s*\d+|TCWS|Wind\s+Signal|sustained\s+winds',
-            text, re.IGNORECASE
-        ))
-        if not has_bulletin_content:
-            print(f"  [PAGASA parse] No bulletin content found at {url}")
-            return signals, "Unknown", extras
-
-        # Name
-        for pattern in [
-            r'(?:Super\s+)?(?:Typhoon|Tropical\s+(?:Storm|Depression))\s+["\u201c]?([A-Z][A-Za-z]+)["\u201d]?',
-            r'Bagyong\s+"?([A-Z][A-Za-z]+)"?',
-        ]:
-            m = re.search(pattern, text, re.IGNORECASE)
+    parts = re.split(r'\(TCWS\)\s+IN\s+EFFECT', text, maxsplit=1, flags=re.I)
+    if len(parts) > 1:
+        body = re.split(r'OTHER\s+HAZARDS', parts[1], maxsplit=1, flags=re.I)[0]
+        for i in range(1, 6):
+            # A standalone signal number, then "Wind threat: ... winds", then the
+            # Luzon-column area list, ending at "- -" or "Warning lead time".
+            m = re.search(
+                rf'(?<!\d){i}\s+Wind threat:.*?winds\s+(.*?)(?:-\s*-|Warning lead time)',
+                body, re.S | re.I)
             if m:
-                name = m.group(1).strip().title()
-                break
+                area_text = re.sub(r'\s+', ' ', m.group(1)).strip()
+                # Split on commas that are NOT inside parentheses
+                pieces = re.split(r',(?![^(]*\))', area_text)
+                areas = [p.strip(' \t\n\r-') for p in pieces
+                         if len(p.strip(' \t\n\r-')) > 2]
+                signals[str(i)] = areas
+    out["signalLevels"] = signals
+    out["highestSignal"] = max((int(k) for k, v in signals.items() if v), default=0)
 
-        # International name
-        m = re.search(r'\(([A-Z][a-z]+)\)', text)
-        if m and is_valid_typhoon_name(m.group(1)):
-            extras["internationalName"] = m.group(1).title()
-
-        # Category
-        m = re.search(r'(Super\s+Typhoon|Typhoon|Severe\s+Tropical\s+Storm|Tropical\s+Storm|Tropical\s+Depression)', text, re.IGNORECASE)
-        if m:
-            extras["category"] = m.group(1).title()
-
-        # Position
-        m = re.search(r'(\d{1,2}\.?\d*)\s*[°]?\s*N[,;\s]+(\d{2,3}\.?\d*)\s*[°]?\s*E', text)
-        if m:
-            extras["location"] = {"lat": float(m.group(1)), "lon": float(m.group(2))}
-
-        # Wind
-        m = re.search(r'sustained\s+winds\s+(?:of\s+)?(?:up\s+to\s+)?(\d{2,3})\s*km', text, re.IGNORECASE)
-        if m:
-            extras["windSpeedKph"] = int(m.group(1))
-        m = re.search(r'gust(?:iness|s)?\s+(?:of\s+)?(?:up\s+to\s+)?(\d{2,3})\s*km', text, re.IGNORECASE)
-        if m:
-            extras["gustinessKph"] = int(m.group(1))
-
-        # Movement
-        m = re.search(r'mov(?:ing|ement)\s+((?:North|South|East|West|Stationary)[\w\s]*?)(?:\s+at\s+(\d+)\s*km)?', text, re.IGNORECASE)
-        if m:
-            extras["movementDirection"] = m.group(1).strip().title()
-
-        # Rainfall
-        m = re.search(r'(?:RAINFALL)[:\s]*([\s\S]*?)(?=STORM\s+SURGE|FLOODING|TRACK|$)', text, re.IGNORECASE)
-        if m:
-            warning_text = m.group(1).strip()[:500]
-            # Reject if it's just nav menu junk
-            if not any(junk.lower() in warning_text.lower() for junk in ["Publications", "Annual Report", "Preliminary Report", "Agriculture"]):
-                extras["rainfallWarning"] = warning_text
-
-        # Storm surge
-        m = re.search(r'STORM\s+SURGE[:\s]*([\s\S]*?)(?=RAINFALL|TRACK|$)', text, re.IGNORECASE)
-        if m:
-            warning_text = m.group(1).strip()[:500]
-            if not any(junk.lower() in warning_text.lower() for junk in ["Publications", "Annual Report", "Preliminary Report", "Agriculture"]):
-                extras["stormSurgeWarning"] = warning_text
-
-        # TCWS Signal levels
-        for i in range(5, 0, -1):
-            pattern = rf'(?:TCWS|Wind\s+Signal|Signal)\s*(?:No\.?|#)\s*{i}\s*[\n:]([\s\S]*?)(?=(?:TCWS|Wind\s+Signal|Signal)\s*(?:No\.?|#)\s*\d|HAZARDS|TRACK|RAINFALL|STORM|$)'
-            m = re.search(pattern, text, re.IGNORECASE)
-            if m:
-                locs = re.split(r'\n|,|;|\band\b', m.group(1))
-                cleaned = [l.strip(' \t\n\r-•·') for l in locs if len(l.strip(' \t\n\r-•·')) > 3]
-                cleaned = [re.sub(r'^[\d.)\-•·]+\s*', '', l).strip() for l in cleaned]
-                cleaned = [l for l in cleaned if len(l) > 3]
-                if cleaned:
-                    signals[str(i)] = list(set(cleaned))
-
-    except Exception as e:
-        print(f"  [PAGASA parse] Error on {url}: {e}")
-
-    return signals, name, extras
+    return out
 
 
 def match_typhoon(typhoons, pagasa_name, pagasa_location=None):
