@@ -344,6 +344,7 @@ _PAGASA_OVERLAY_FIELDS = (
     "internationalName", "category", "windSpeedKph", "gustinessKph",
     "pressureHpa", "movementDirection", "movementSpeedKph",
     "signalLevels", "highestSignal", "headline", "bulletinNumber",
+    "windExtentKm", "forecastOutlook",
 )
 
 
@@ -383,6 +384,8 @@ def _build_pagasa_typhoon(parsed, bulletin):
         "pressureHpa": parsed.get("pressureHpa", 0),
         "movementDirection": parsed.get("movementDirection", ""),
         "movementSpeedKph": parsed.get("movementSpeedKph", 0),
+        "windExtentKm": parsed.get("windExtentKm", 0),
+        "forecastOutlook": parsed.get("forecastOutlook", ""),
         "forecastTrack": [],
         "signalLevels": parsed.get("signalLevels", {"1": [], "2": [], "3": [], "4": [], "5": []}),
         "highestSignal": sig,
@@ -484,6 +487,22 @@ def parse_bulletin_pdf(text):
             out["movementSpeedKph"] = int(sm.group(2))
         else:
             out["movementDirection"] = mv  # e.g. "West northwestward Slowly"
+
+    # Extent of tropical-cyclone winds (km from center)
+    m = re.search(r'winds?\s+extend\s+outwards?\s+up\s+to\s+(\d+)\s*km', text, re.I)
+    if m:
+        out["windExtentKm"] = int(m.group(1))
+
+    # Forecast narrative ("TRACK AND INTENSITY OUTLOOK"), boilerplate stripped
+    m = re.search(r'TRACK AND INTENSITY OUTLOOK\s+(.+)', text, re.S | re.I)
+    if m:
+        outlook = re.sub(r'\s+', ' ', m.group(1)).strip()
+        sentences = re.split(r'(?<=\.)\s+', outlook)
+        kept = [s for s in sentences
+                if not re.search(r'confidence cone|must be emphasized|Other Hazards', s, re.I)]
+        outlook = " ".join(kept).strip()
+        if outlook:
+            out["forecastOutlook"] = outlook[:900]
 
     # TCWS signal levels
     signals = {"1": [], "2": [], "3": [], "4": [], "5": []}
